@@ -25,6 +25,18 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO pattern;
 psql -U pattern -d lifesync
 ```
 
+## Database Tables
+
+```sql
+CREATE TABLE users (
+    user_id    VARCHAR(36)  PRIMARY KEY,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name  VARCHAR(100) NOT NULL,
+    password   VARCHAR(255) NOT NULL
+);
+```
+
 # Backend Setup
 
 ```bash

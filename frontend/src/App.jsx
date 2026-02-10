@@ -1,20 +1,34 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AuthPage from './pages/AuthPage';
+import Dashboard from './pages/Dashboard';
+import EditProfile from './pages/EditProfile';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function App() {
   return (
-    <div className="app">
-      <header className="header">
-        <h1>LifeSync</h1>
-        <p>Your Life, Synchronized</p>
-      </header>
-
-      <main className="container">
-        <section className="welcome-section">
-          <h2>Welcome to LifeSync</h2>
-          <p>Ready to get started!</p>
-        </section>
-      </main>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<AuthPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/edit"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

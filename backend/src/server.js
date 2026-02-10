@@ -3,25 +3,31 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const { connectDB, query } = require('./config/database');
+const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
+const profileRoutes = require('./routes/profile');
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
 
 connectDB();
 
-// Middleware
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
 
-// API routes will be added here
 
-// Error handlers
+app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/profile', profileRoutes);
+
+
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
