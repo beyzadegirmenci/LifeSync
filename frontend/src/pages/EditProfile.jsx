@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useMemento } from '../hooks/useMemento';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -11,7 +12,9 @@ function EditProfile() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [user, setUser] = useState(null);
-  const [form, setForm] = useState({
+  
+  // Apply Memento Pattern to the form state
+  const { state: form, setMemento: setForm, undo, canUndo, reset: resetForm } = useMemento({
     password: '',
     passwordConfirm: '',
     height: '',
@@ -32,7 +35,9 @@ function EditProfile() {
       });
       const u = res.data.user;
       setUser(u);
-      setForm({
+      
+      // Initialize the Memento base state
+      resetForm({
         password: '',
         passwordConfirm: '',
         height: u.height || '',
@@ -222,9 +227,14 @@ function EditProfile() {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={undo} disabled={!canUndo || saving}>
+                Undo Edit
+              </button>
+            </div>
           </form>
         </div>
       </main>
