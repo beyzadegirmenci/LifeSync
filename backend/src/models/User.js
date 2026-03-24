@@ -1,6 +1,9 @@
+// Model seviyesinde Builder Pattern kullaniyoruz:
+// guncellenecek kolonlar SqlUpdateBuilder ile dinamik olarak uretiliyor.
 const { query } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt');
+const SqlUpdateBuilder = require('../builders/SqlUpdateBuilder');
 
 const SALT_ROUNDS = 10;
 
@@ -40,41 +43,34 @@ const User = {
 
     
     async updateProfile(userId, { password, height, weight, age, gender }) {
-        const fields = [];
-        const values = [];
-        let paramIndex = 1;
+        const updateBuilder = new SqlUpdateBuilder();
 
         if (password) {
             const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-            fields.push(`password = $${paramIndex++}`);
-            values.push(hashedPassword);
+            updateBuilder.addField('password', hashedPassword);
         }
         if (height !== undefined) {
-            fields.push(`height = $${paramIndex++}`);
-            values.push(height || null);
+            updateBuilder.addField('height', height);
         }
         if (weight !== undefined) {
-            fields.push(`weight = $${paramIndex++}`);
-            values.push(weight || null);
+            updateBuilder.addField('weight', weight);
         }
         if (age !== undefined) {
-            fields.push(`age = $${paramIndex++}`);
-            values.push(age || null);
+            updateBuilder.addField('age', age);
         }
         if (gender !== undefined) {
-            fields.push(`gender = $${paramIndex++}`);
-            values.push(gender || null);
+            updateBuilder.addField('gender', gender);
         }
 
-        if (fields.length === 0) {
+        if (updateBuilder.isEmpty()) {
             return this.findById(userId);
         }
 
-        values.push(userId);
+        const builtQuery = updateBuilder.build('user_id', userId);
         const result = await query(
-            `UPDATE users SET ${fields.join(', ')} WHERE user_id = $${paramIndex}
+            `UPDATE users SET ${builtQuery.setClause} WHERE user_id = $${builtQuery.whereParamIndex}
              RETURNING user_id, email, first_name, last_name, height, weight, age, gender`,
-            values
+            builtQuery.values
         );
 
         return result.rows[0];

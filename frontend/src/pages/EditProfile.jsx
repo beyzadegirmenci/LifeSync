@@ -76,6 +76,7 @@ function EditProfile() {
       const payload = {};
 
       if (form.password) payload.password = form.password;
+      if (form.password) payload.passwordAgain = form.passwordConfirm;
       if (form.height !== '') payload.height = parseInt(form.height);
       if (form.weight !== '') payload.weight = parseInt(form.weight);
       if (form.age !== '') payload.age = parseInt(form.age);

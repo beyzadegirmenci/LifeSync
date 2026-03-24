@@ -1,4 +1,7 @@
+// Controller seviyesinde Builder Pattern kullaniyoruz:
+// request'ten gelen profile alanlari ProfileBuilder ile adim adim build ediliyor.
 const User = require('../models/User');
+const ProfileBuilder = require('../builders/ProfileBuilder');
 
 const profileController = {
     
@@ -30,25 +33,15 @@ const profileController = {
     
     async updateProfile(req, res) {
         try {
-            const { password, height, weight, age, gender } = req.body;
+            const profileData = new ProfileBuilder()
+                .withPassword(req.body.password, req.body.passwordAgain)
+                .withHeight(req.body.height)
+                .withWeight(req.body.weight)
+                .withAge(req.body.age)
+                .withGender(req.body.gender)
+                .build();
 
-            
-            if (password && password.length < 6) {
-                return res.status(400).json({ error: 'Password must be at least 6 characters' });
-            }
-
-            
-            if (gender && !['male', 'female'].includes(gender)) {
-                return res.status(400).json({ error: 'Gender must be male or female' });
-            }
-
-            const updatedUser = await User.updateProfile(req.userId, {
-                password,
-                height,
-                weight,
-                age,
-                gender
-            });
+            const updatedUser = await User.updateProfile(req.userId, profileData);
 
             if (!updatedUser) {
                 return res.status(404).json({ error: 'User not found' });
@@ -68,6 +61,16 @@ const profileController = {
                 }
             });
         } catch (error) {
+            if (error.message && (
+                error.message.includes('Password') ||
+                error.message.includes('Gender') ||
+                error.message.includes('Height') ||
+                error.message.includes('Weight') ||
+                error.message.includes('Age')
+            )) {
+                return res.status(400).json({ error: error.message });
+            }
+
             console.error('Update profile error:', error);
             res.status(500).json({ error: 'Failed to update profile' });
         }
