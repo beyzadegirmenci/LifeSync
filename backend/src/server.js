@@ -1,35 +1,39 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
 const express = require('express');
 const cors = require('cors');
-const { connectDB, query } = require('./config/database');
-const authRoutes = require('./routes/auth');
+const { connectDB } = require('./config/database');
+const authRoutes      = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
-const profileRoutes = require('./routes/profile');
+const profileRoutes   = require('./routes/profile');
 
-const app = express();
-const PORT = process.env.BACKEND_PORT || 5000;
+const app  = express();
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 5000;
 
 connectDB();
 
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
-app.use(cors());
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
 
-
-app.use('/api/auth', authRoutes);
+app.use('/api/auth',      authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/profile', profileRoutes);
-
+app.use('/api/profile',   profileRoutes);
 
 app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
+    res.status(404).json({ error: 'Route bulunamadi.' });
 });
 
 app.use((err, req, res, next) => {
