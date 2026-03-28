@@ -42,7 +42,7 @@ CREATE TABLE users (
 ```bash
 
 # Change path
-cd LifeSync/backend
+cd LifeSync/backend/src
 
 # Install packages
 npm install
