@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import json
-import os
-import sys
+import math
 from dataclasses import dataclass
-from typing import Dict, List, Protocol, Tuple
+from typing import List, Dict, Any
 
-try:
-    import requests
-except ImportError:
-    print("Missing dependency: requests. Install with: pip install requests")
-    sys.exit(1)
+import requests
 
 
-# -----------------------------
-# Domain models
-# -----------------------------
+OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_MODEL = "llama3.1:8b"
+
 
 @dataclass
 class UserProfile:
@@ -25,303 +19,284 @@ class UserProfile:
     weight_kg: float
     goal: str
     diet_preference: str
-    dietary_restrictions: str
+    allergy_or_restriction: str
     activity_level: int
     exercise_days_per_week: int
     sleep_hours: float
     water_liters_per_day: float
-    daily_screen_time_hours: float
-    health_notes: str
-
-    @property
-    def bmi(self) -> float:
-        meters = self.height_cm / 100
-        return round(self.weight_kg / (meters * meters), 1)
-
-
-# -----------------------------
-# Level classification
-# -----------------------------
-
-class LevelRule(Protocol):
-    def matches(self, score: int) -> bool: ...
-    def label(self) -> str: ...
+    screen_hours_per_day: float
+    health_note: str
 
 
 @dataclass
-class BeginnerRule:
-    def matches(self, score: int) -> bool:
-        return score <= 4
-
-    def label(self) -> str:
-        return "Beginner"
-
-
-@dataclass
-class IntermediateRule:
-    def matches(self, score: int) -> bool:
-        return 5 <= score <= 8
-
-    def label(self) -> str:
-        return "Intermediate"
+class ClassificationResult:
+    level: str
+    score: int
+    reasons: List[str]
+    bmi: float
 
 
 @dataclass
-class AdvancedRule:
-    def matches(self, score: int) -> bool:
-        return score >= 9
-
-    def label(self) -> str:
-        return "Advanced"
+class Recommendation:
+    level: str
+    raw_text: str
+    metadata: Dict[str, Any]
 
 
-class LevelClassifier:
-    """
-    Strategy-friendly classifier.
-    You can later replace scoring logic or threshold rules without touching the CLI.
-    """
-
-    def __init__(self, rules: List[LevelRule]) -> None:
-        self.rules = rules
-
-    def calculate_score(self, profile: UserProfile) -> int:
-        score = 0
-
-        # Exercise habits
-        if profile.exercise_days_per_week >= 5:
-            score += 4
-        elif profile.exercise_days_per_week >= 3:
-            score += 3
-        elif profile.exercise_days_per_week >= 1:
-            score += 1
-
-        # Self-reported activity
-        score += max(0, min(profile.activity_level - 1, 4))
-
-        # Recovery habits
-        if profile.sleep_hours >= 7:
-            score += 1
-        if profile.water_liters_per_day >= 2:
-            score += 1
-
-        # Sedentary penalty
-        if profile.daily_screen_time_hours >= 9:
-            score -= 1
-
-        return max(score, 0)
-
-    def classify(self, profile: UserProfile) -> Tuple[str, int]:
-        score = self.calculate_score(profile)
-        for rule in self.rules:
-            if rule.matches(score):
-                return rule.label(), score
-        return "Beginner", score
-
-
-# -----------------------------
-# LLM integration
-# -----------------------------
-
-class LLMProvider(Protocol):
-    def generate(self, prompt: str) -> str: ...
-
-
-class OllamaProvider:
-    """
-    Adapter-like provider for Ollama's local API.
-    Default base URL follows Ollama docs.
-    """
-
-    def __init__(
-        self,
-        model: str = "llama3",
-        base_url: str = "http://localhost:11434/api/generate",
-        timeout: int = 120,
-    ) -> None:
-        self.model = model
-        self.base_url = base_url
-        self.timeout = timeout
-
-    def generate(self, prompt: str) -> str:
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-        }
-        response = requests.post(self.base_url, json=payload, timeout=self.timeout)
-        response.raise_for_status()
-        data = response.json()
-        text = data.get("response", "").strip()
-        if not text:
-            raise ValueError("Empty response received from Ollama.")
-        return text
-
-
-class RoutineGenerator:
-    def __init__(self, provider: LLMProvider) -> None:
-        self.provider = provider
-
-    def build_prompt(self, profile: UserProfile, level: str, score: int) -> str:
-        return f"""
-You are a careful wellness assistant for a university software project.
-Create a personalized weekly wellness routine.
-
-Important constraints:
-- Do NOT claim to be a doctor.
-- Do NOT give medical diagnosis.
-- Keep suggestions general, practical, and safe.
-- If the user has health limitations in notes, be conservative.
-- Respond in Turkish.
-- Format output with these sections exactly:
-  1. Seviye Özeti
-  2. Haftalık Egzersiz Rutini
-  3. Günlük Beslenme Önerileri
-  4. Günlük Sağlıklı Alışkanlık Hatırlatmaları
-  5. Dikkat Edilmesi Gerekenler
-
-User profile:
-- Yaş: {profile.age}
-- Cinsiyet: {profile.gender}
-- Boy (cm): {profile.height_cm}
-- Kilo (kg): {profile.weight_kg}
-- BMI: {profile.bmi}
-- Hedef: {profile.goal}
-- Beslenme tercihi: {profile.diet_preference}
-- Kısıtlar / alerjiler: {profile.dietary_restrictions}
-- Aktivite seviyesi (1-5): {profile.activity_level}
-- Haftalık egzersiz günü: {profile.exercise_days_per_week}
-- Uyku (saat): {profile.sleep_hours}
-- Günlük su (litre): {profile.water_liters_per_day}
-- Günlük ekran süresi (saat): {profile.daily_screen_time_hours}
-- Ek sağlık notları: {profile.health_notes}
-
-Detected level: {level}
-Internal score: {score}
-
-Need:
-- 7 günlük sade bir egzersiz planı oluştur.
-- 1 haftalık uygulanabilir beslenme önerileri ver.
-- Günlük su içme, kısa yürüyüş, esneme gibi tekrar eden hatırlatmaları madde madde ekle.
-- Öğrenci/yoğun kullanıcı için gerçekçi öneriler yaz.
-- Her gün için aşırı detay yerine uygulanabilir ve kısa öneriler ver.
-""".strip()
-
-    def generate_routine(self, profile: UserProfile, level: str, score: int) -> str:
-        prompt = self.build_prompt(profile, level, score)
-        return self.provider.generate(prompt)
-
-
-# -----------------------------
-# CLI helpers
-# -----------------------------
-
-def ask_int(question: str, min_value: int | None = None, max_value: int | None = None) -> int:
+def ask_int(prompt: str, min_value: int | None = None, max_value: int | None = None) -> int:
     while True:
-        raw = input(f"{question}: ").strip()
+        raw = input(prompt).strip()
         try:
             value = int(raw)
             if min_value is not None and value < min_value:
-                raise ValueError
+                print(f"Lütfen {min_value} veya daha büyük bir değer gir.")
+                continue
             if max_value is not None and value > max_value:
-                raise ValueError
+                print(f"Lütfen {max_value} veya daha küçük bir değer gir.")
+                continue
             return value
         except ValueError:
-            range_text = []
-            if min_value is not None:
-                range_text.append(f">= {min_value}")
-            if max_value is not None:
-                range_text.append(f"<= {max_value}")
-            hint = f" ({', '.join(range_text)})" if range_text else ""
-            print(f"Lütfen geçerli bir tam sayı gir.{hint}")
+            print("Lütfen geçerli bir tam sayı gir.")
 
 
-def ask_float(question: str, min_value: float | None = None, max_value: float | None = None) -> float:
+def ask_float(prompt: str, min_value: float | None = None, max_value: float | None = None) -> float:
     while True:
-        raw = input(f"{question}: ").strip().replace(",", ".")
+        raw = input(prompt).strip().replace(",", ".")
         try:
             value = float(raw)
             if min_value is not None and value < min_value:
-                raise ValueError
+                print(f"Lütfen {min_value} veya daha büyük bir değer gir.")
+                continue
             if max_value is not None and value > max_value:
-                raise ValueError
+                print(f"Lütfen {max_value} veya daha küçük bir değer gir.")
+                continue
             return value
         except ValueError:
             print("Lütfen geçerli bir sayı gir.")
 
 
-def ask_text(question: str, allowed: List[str] | None = None) -> str:
+def ask_text(prompt: str) -> str:
     while True:
-        value = input(f"{question}: ").strip()
-        if not value:
-            print("Bu alan boş bırakılamaz.")
-            continue
-        if allowed and value.lower() not in [x.lower() for x in allowed]:
-            print(f"Geçerli seçenekler: {', '.join(allowed)}")
-            continue
-        return value
+        value = input(prompt).strip()
+        if value:
+            return value
+        print("Bu alan boş bırakılamaz.")
+
+
+def calculate_bmi(weight_kg: float, height_cm: float) -> float:
+    height_m = height_cm / 100
+    return weight_kg / (height_m ** 2)
 
 
 def collect_survey() -> UserProfile:
-    print("\n=== LifeSync CLI Anketi ===")
+    print("=" * 70)
+    print("LifeSync CLI Backend MVP")
+    print("=" * 70)
+    print("Not: Bu çıktı genel iyi yaşam önerisi içindir, tıbbi tavsiye değildir.\n")
+
+    print("=== LifeSync CLI Anketi ===")
     print("Aşağıdaki sorulara cevap ver. Sistem seviyeni belirleyip öneri üretecek.\n")
 
     return UserProfile(
-        age=ask_int("Yaşınız", 12, 100),
-        gender=ask_text("Cinsiyetiniz"),
-        height_cm=ask_float("Boyunuz (cm)", 100, 250),
-        weight_kg=ask_float("Kilonuz (kg)", 30, 300),
-        goal=ask_text("Ana hedefiniz (ör. kilo vermek, form korumak, kas kazanmak)"),
-        diet_preference=ask_text("Beslenme tercihiniz (ör. omnivor, vejetaryen, vegan)"),
-        dietary_restrictions=ask_text("Alerji / besin kısıtı var mı? Yoksa 'yok' yazın"),
-        activity_level=ask_int("Günlük aktivite seviyeniz (1-5)", 1, 5),
-        exercise_days_per_week=ask_int("Haftada kaç gün egzersiz yapıyorsunuz", 0, 7),
-        sleep_hours=ask_float("Ortalama uyku süreniz (saat)", 0, 24),
-        water_liters_per_day=ask_float("Günde yaklaşık kaç litre su içiyorsunuz", 0, 10),
-        daily_screen_time_hours=ask_float("Günlük ekran süreniz (saat)", 0, 24),
-        health_notes=ask_text("Ek sağlık notu / hassasiyet / sakatlık durumu (yoksa 'yok')"),
+        age=ask_int("Yaşınız: ", min_value=10, max_value=100),
+        gender=ask_text("Cinsiyetiniz: "),
+        height_cm=ask_float("Boyunuz (cm): ", min_value=100, max_value=250),
+        weight_kg=ask_float("Kilonuz (kg): ", min_value=30, max_value=300),
+        goal=ask_text("Ana hedefiniz (ör. kilo vermek, form korumak, kas kazanmak): "),
+        diet_preference=ask_text("Beslenme tercihiniz (ör. omnivor, vejetaryen, vegan): "),
+        allergy_or_restriction=ask_text("Alerji / besin kısıtı var mı? Yoksa 'yok' yazın: "),
+        activity_level=ask_int("Günlük aktivite seviyeniz (1-5): ", min_value=1, max_value=5),
+        exercise_days_per_week=ask_int("Haftada kaç gün egzersiz yapıyorsunuz: ", min_value=0, max_value=7),
+        sleep_hours=ask_float("Ortalama uyku süreniz (saat): ", min_value=0, max_value=24),
+        water_liters_per_day=ask_float("Günde yaklaşık kaç litre su içiyorsunuz: ", min_value=0, max_value=10),
+        screen_hours_per_day=ask_float("Günlük ekran süreniz (saat): ", min_value=0, max_value=24),
+        health_note=ask_text("Ek sağlık notu / hassasiyet / sakatlık durumu (yoksa 'yok'): "),
     )
 
 
-def print_profile_summary(profile: UserProfile, level: str, score: int) -> None:
-    print("\n=== Kullanıcı Özeti ===")
-    print(f"BMI: {profile.bmi}")
-    print(f"Seviye: {level}")
-    print(f"Skor: {score}")
+def classify_user(profile: UserProfile) -> ClassificationResult:
+    bmi = calculate_bmi(profile.weight_kg, profile.height_cm)
+    score = 0
+    reasons: List[str] = []
+
+    if profile.activity_level >= 4:
+        score += 2
+        reasons.append("Günlük aktivite seviyesi yüksek.")
+    elif profile.activity_level == 3:
+        score += 1
+        reasons.append("Günlük aktivite seviyesi orta.")
+    else:
+        reasons.append("Günlük aktivite seviyesi düşük.")
+
+    if profile.exercise_days_per_week >= 4:
+        score += 2
+        reasons.append("Haftalık egzersiz sıklığı yüksek.")
+    elif profile.exercise_days_per_week >= 2:
+        score += 1
+        reasons.append("Haftalık egzersiz sıklığı orta.")
+    else:
+        reasons.append("Haftalık egzersiz sıklığı düşük.")
+
+    if 18.5 <= bmi <= 29.9:
+        score += 1
+        reasons.append("BMI aralığı planlama açısından yönetilebilir seviyede.")
+    else:
+        reasons.append("BMI özel dikkat gerektirebilir.")
+
+    if 6 <= profile.sleep_hours <= 9:
+        score += 1
+        reasons.append("Uyku süresi dengeli.")
+    else:
+        reasons.append("Uyku düzeni iyileştirilebilir.")
+
+    if profile.water_liters_per_day >= 2:
+        score += 1
+        reasons.append("Su tüketimi iyi düzeyde.")
+    else:
+        reasons.append("Su tüketimi düşük.")
+
+    if score <= 2:
+        level = "Beginner"
+    elif score <= 5:
+        level = "Intermediate"
+    else:
+        level = "Advanced"
+
+    return ClassificationResult(
+        level=level,
+        score=score,
+        reasons=reasons,
+        bmi=round(bmi, 1),
+    )
 
 
-# -----------------------------
-# Main app
-# -----------------------------
+def build_prompt(profile: UserProfile, result: ClassificationResult) -> str:
+    return f"""
+Sen bir sağlıklı yaşam asistanısın.
+Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
+
+ÖNEMLİ KURALLAR:
+- Tıbbi teşhis koyma.
+- Riskli, aşırı zorlayıcı öneriler verme.
+- Kullanıcının seviyesi {result.level} olduğu için önerileri buna uygun hazırla.
+- Cevabı Türkçe ver.
+- Formatı düzenli olsun.
+- Çok uzun yazma.
+
+KULLANICI BİLGİLERİ:
+- Yaş: {profile.age}
+- Cinsiyet: {profile.gender}
+- Boy: {profile.height_cm} cm
+- Kilo: {profile.weight_kg} kg
+- BMI: {result.bmi}
+- Hedef: {profile.goal}
+- Beslenme tercihi: {profile.diet_preference}
+- Alerji / kısıt: {profile.allergy_or_restriction}
+- Aktivite seviyesi: {profile.activity_level}/5
+- Haftalık egzersiz günü: {profile.exercise_days_per_week}
+- Uyku: {profile.sleep_hours} saat
+- Günlük su: {profile.water_liters_per_day} litre
+- Günlük ekran süresi: {profile.screen_hours_per_day} saat
+- Ek sağlık notu: {profile.health_note}
+- Seviye: {result.level}
+
+Lütfen şu başlıklarda cevap ver:
+1. Kısa genel değerlendirme
+2. Diyet önerileri
+3. Egzersiz önerileri
+4. Günlük rutin önerisi
+5. Su içme ve alışkanlık hatırlatmaları
+6. Dikkat edilmesi gerekenler
+
+Her bölüm kısa, uygulanabilir ve maddeli olsun.
+
+ÇIKTI FORMATI:
+- Her başlık altında sadece Türkçe maddeler yaz.
+- Her madde açık ve anlaşılır olsun.
+- Bozuk veya karışık dil kullanırsan cevap geçersiz sayılır.
+
+""".strip()
+
+
+def generate_recommendation(
+    profile: UserProfile,
+    result: ClassificationResult,
+    model: str = DEFAULT_MODEL,
+) -> Recommendation:
+    prompt = build_prompt(profile, result)
+
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "num_predict": 4000,
+            "temperature": 0.3
+        },
+    }
+
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json=payload,
+            timeout=(10, 300),
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        return Recommendation(
+            level=result.level,
+            raw_text=data.get("response", "").strip() or "Model boş yanıt döndürdü.",
+            metadata={
+                "model": data.get("model", model),
+                "done": data.get("done", False),
+            },
+        )
+    except requests.exceptions.RequestException as exc:
+        return Recommendation(
+            level=result.level,
+            raw_text=(
+                "Ollama bağlantısı kurulamadı veya yanıt zaman aşımına uğradı.\n"
+                "Kontrol et:\n"
+                "1) Ollama açık mı?\n"
+                "2) Model hazır mı? Örn: ollama run llama3.2:3b\n"
+                "3) localhost:11434 erişilebilir mi?\n"
+            ),
+            metadata={
+                "model": model,
+                "error": str(exc),
+            },
+        )
+
 
 def main() -> None:
-    model = os.getenv("OLLAMA_MODEL", "llama3")
-    print("LifeSync CLI Backend MVP")
-    print(f"Ollama model: {model}")
-    print("Not: Bu çıktı genel iyi yaşam önerisi içindir, tıbbi tavsiye değildir.\n")
-
     profile = collect_survey()
+    result = classify_user(profile)
 
-    classifier = LevelClassifier(
-        [BeginnerRule(), IntermediateRule(), AdvancedRule()]
-    )
-    level, score = classifier.classify(profile)
-    print_profile_summary(profile, level, score)
-
-    provider = OllamaProvider(model=model)
-    generator = RoutineGenerator(provider)
+    print("\n" + "=" * 70)
+    print("Kullanıcı Özeti")
+    print("=" * 70)
+    print(f"BMI: {result.bmi}")
+    print(f"Seviye: {result.level}")
+    print(f"Skor: {result.score}")
+    print("Nedenler:")
+    for reason in result.reasons:
+        print(f"- {reason}")
 
     print("\nLLM üzerinden kişiselleştirilmiş öneri üretiliyor...\n")
-    try:
-        result = generator.generate_routine(profile, level, score)
-        print(result)
-    except requests.RequestException as exc:
-        print("Ollama bağlantısı kurulamadı.")
-        print("Kontrol et:")
-        print("1) Ollama açık mı?")
-        print("2) Model çekildi mi? Örn: ollama run llama3")
-        print(f"Teknik detay: {exc}")
-    except Exception as exc:
-        print(f"Beklenmeyen hata: {exc}")
+    recommendation = generate_recommendation(profile, result)
+
+    print("=" * 70)
+    print("Kişiselleştirilmiş Öneriler")
+    print("=" * 70)
+    print(f"Model: {recommendation.metadata.get('model', 'unknown')}")
+    print(f"Seviye: {recommendation.level}")
+    print("-" * 70)
+    print(recommendation.raw_text)
+
+    if "error" in recommendation.metadata:
+        print("\nTeknik detay:")
+        print(recommendation.metadata["error"])
 
 
 if __name__ == "__main__":
