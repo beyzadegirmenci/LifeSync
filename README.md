@@ -1,10 +1,119 @@
 # Setup Instructions
 
+## Hızlı Başlangıç
+
+### 1. Repository'i Klonlayın
 ```bash
-# Clone repository
 git clone https://github.com/beyzadegirmenci/LifeSync
-
-# For the backend and database setup, follow the backend/README.md file
-
-# For the frontend setup, follow the frontend/README.md file
+cd LifeSync
 ```
+
+### 2. Veritabanı Kurulumu
+Backend/README.md dosyasındaki "Database Setup" bölümünü takip edin.
+
+### 3. Backend Kurulumu
+Aşağıdaki adımları sırasıyla uygulayın:
+
+```bash
+# NPM cache'i temizleyin
+npm cache clean --force
+
+# Backend klasörüne gidin
+cd backend
+
+# node_modules klasörünü temizleyin (varsa)
+Remove-Item -Recurse -Force node_modules
+rm -r package-lock.json
+
+# Paketleri kurun
+npm install --legacy-peer-deps
+
+# Backend sunucusunu başlatın (port 5000)
+npm run dev
+```
+
+### 4. Frontend Kurulumu
+Yeni bir terminal açın ve aşağıdaki adımları uygulayın:
+
+```bash
+# Frontend klasörüne gidin
+cd frontend
+
+# node_modules klasörünü temizleyin (varsa)
+Remove-Item -Recurse -Force node_modules
+rm -r package-lock.json
+
+# Paketleri kurun
+npm install --legacy-peer-deps
+
+# Frontend sunucusunu başlatın (port 5173)
+npm run dev
+```
+
+## Uzun Süre Takılı Kalırsa
+
+Eğer işlem çok uzun sürüyor ve takılıysa şu adımları yapın:
+
+```bash
+# 1. NPM cache'i tamamen temizle
+npm cache clean --force
+
+# 2. Backend temizliği
+cd backend
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+rm -r package-lock.json -ErrorAction SilentlyContinue
+npm install --legacy-peer-deps
+
+# 3. Frontend temizliği
+cd ../frontend
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+rm -r package-lock.json -ErrorAction SilentlyContinue
+npm install --legacy-peer-deps
+```
+
+## Sunucuları Başlatmak
+
+### Terminal 1 - Backend
+```bash
+cd backend
+npm run dev
+# Çıktı: Server is running on http://localhost:5000
+```
+
+### Terminal 2 - Frontend
+```bash
+cd frontend
+npm run dev
+# Çıktı: Local: http://localhost:5173/
+```
+
+## Ollama Kurulumu (Opsiyonel)
+
+Kişiye özel beslenme ve egzersiz planları üretmek için Ollama gereklidir:
+
+1. https://ollama.ai adresinden Ollama'yı indirin
+2. Ollama'yı başlatın
+3. Model indirin: `ollama pull llama2` veya `ollama pull mistral`
+4. Ollama'nın çalıştığından emin olun (http://localhost:11434)
+
+Ollama olmadan da sistem çalışır, ancak AI tarafından oluşturulan planlar yerinde hata mesajı görülecektir.
+
+## Erişim
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:5000
+- **Ollama**: http://localhost:11434 (eğer kuruluysa)
+
+## Sorun Giderme
+
+### "Ollama servisi yanıt vermedi" hatası
+- Ollama'nın çalıştığından emin olun
+- `http://localhost:11434` adresine erişmeyi deneyin
+
+### Port zaten kullanımda hatası
+- Backend: `lsof -i :5000` ile kapatın veya port değiştirin
+- Frontend: `lsof -i :5173` ile kapatın veya port değiştirin
+
+### NPM paket kuruluyor çok uzun sürüyor
+- `npm install --legacy-peer-deps` kullanın
+- Cache temizleyin: `npm cache clean --force`
