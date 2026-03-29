@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import EditProfile from './pages/EditProfile';
+import OnboardingSurvey from './pages/OnboardingSurvey';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -15,6 +16,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/survey"
+          element={
+            <ProtectedRoute>
+              <OnboardingSurvey />
             </ProtectedRoute>
           }
         />

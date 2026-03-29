@@ -403,10 +403,14 @@
 /* Edit Profile Button on Dashboard */
 .edit-profile-btn-container {
   margin-top: 2rem;
-  text-align: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-.btn-edit-profile {
+.btn-edit-profile,
+.btn-survey {
   padding: 0.75rem 2rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -419,7 +423,8 @@
   font-family: inherit;
 }
 
-.btn-edit-profile:hover {
+.btn-edit-profile:hover,
+.btn-survey:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }

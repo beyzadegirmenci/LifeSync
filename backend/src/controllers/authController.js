@@ -46,8 +46,8 @@ const authController = {
                 }
             });
         } catch (error) {
-            console.error('Register error:', error);
-            res.status(500).json({ error: 'Registration failed' });
+            console.error('Register error:', error.message, error.stack);
+            res.status(500).json({ error: 'Registration failed', details: error.message });
         }
     },
 

@@ -149,6 +149,9 @@ function Dashboard() {
           <button className="btn btn-edit-profile" onClick={() => navigate('/profile/edit')}>
             ✏️ Edit Profile
           </button>
+          <button className="btn btn-survey" onClick={() => navigate('/survey')}>
+            📋 Sağlık Anketi
+          </button>
         </div>
       </main>
     </div>
