@@ -92,41 +92,5 @@ npm start
 
 Backend sunucusu `http://localhost:5000` adresinde çalışacaktır.
 
-## API Endpoints
 
-- `GET /health` - Sunucu durumu kontrol
-- `POST /api/auth/register` - Kullanıcı kaydı
-- `POST /api/auth/login` - Kullanıcı giriş
-- `GET /api/dashboard` - Dashboard verisi
-- `POST /api/dashboard/survey` - Sağlık anketi
-- `POST /api/dashboard/diet-plan` - Beslenme planı (Ollama gerekli)
-- `POST /api/dashboard/exercise-plan` - Egzersiz planı (Ollama gerekli)
-
-## Sorun Giderme
-
-### "PostgreSQL bağlantısı başarısız" hatası
-- PostgreSQL servisi çalışıp çalışmadığını kontrol edin
-- `.env` dosyasındaki veritabanı bilgilerini kontrol edin
-- Kullanıcı ve parola doğru mu kontrol edin
-
-### "Ollama servisi yanıt vermedi" hatası
-- Ollama kurulu ve çalışır durumda olup olmadığını kontrol edin
-- `http://localhost:11434` adresine erişmeyi deneyin
-- Ollama olmadan sistem kısmi olarak çalışır (AI planları hata verir)
-
-### Port 5000 zaten kullanımda
-```bash
-# Windows'ta: port'ı kullanan process'i bul ve kapat
-netstat -ano | findstr :5000
-taskkill /PID <PID> /F
-
-# macOS/Linux'ta:
-lsof -i :5000
-kill -9 <PID>
-```
-
-### NPM paketleri çok uzun sürüyor
-- `npm cache clean --force` işlemi yapın
-- `--legacy-peer-deps` flag'ini kullanın
-- Internet bağlantınızı kontrol edin
 
