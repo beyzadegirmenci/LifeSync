@@ -8,28 +8,17 @@
 
 ## Kurulum Adımları
 
-### Adım 1: NPM Cache Temizliği
-```bash
-npm cache clean --force
-```
-
-### Adım 2: Frontend Klasörüne Gidin
+### Adım 1: Frontend Klasörüne Gidin
 ```bash
 cd LifeSync/frontend
 ```
 
-### Adım 3: Eski Paketleri Temizleyin (İlk Kurulumsa gerekli değil)
-```bash
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-rm -r package-lock.json -ErrorAction SilentlyContinue
-```
-
-### Adım 4: Paketleri Kurun
+### Adım 2: Paketleri Kurun
 ```bash
 npm install --legacy-peer-deps
 ```
 
-### Adım 5: Sunucuyu Başlatın
+### Adım 3: Sunucuyu Başlatın
 
 Geliştirme modu (Hot module reloading ile):
 ```bash

@@ -9,21 +9,14 @@ cd LifeSync
 ```
 
 ### 2. Veritabanı Kurulumu
-Backend/README.md dosyasındaki "Database Setup" bölümünü takip edin.
+Backend/README.md dosyasındaki "Veritabanı Kurulumu" bölümünü takip edin.
 
 ### 3. Backend Kurulumu
 Aşağıdaki adımları sırasıyla uygulayın:
 
 ```bash
-# NPM cache'i temizleyin
-npm cache clean --force
-
 # Backend klasörüne gidin
 cd backend
-
-# node_modules klasörünü temizleyin (varsa)
-Remove-Item -Recurse -Force node_modules
-rm -r package-lock.json
 
 # Paketleri kurun
 npm install --legacy-peer-deps
@@ -39,36 +32,11 @@ Yeni bir terminal açın ve aşağıdaki adımları uygulayın:
 # Frontend klasörüne gidin
 cd frontend
 
-# node_modules klasörünü temizleyin (varsa)
-Remove-Item -Recurse -Force node_modules
-rm -r package-lock.json
-
 # Paketleri kurun
 npm install --legacy-peer-deps
 
 # Frontend sunucusunu başlatın (port 5173)
 npm run dev
-```
-
-## Uzun Süre Takılı Kalırsa
-
-Eğer işlem çok uzun sürüyor ve takılıysa şu adımları yapın:
-
-```bash
-# 1. NPM cache'i tamamen temizle
-npm cache clean --force
-
-# 2. Backend temizliği
-cd backend
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-rm -r package-lock.json -ErrorAction SilentlyContinue
-npm install --legacy-peer-deps
-
-# 3. Frontend temizliği
-cd ../frontend
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-rm -r package-lock.json -ErrorAction SilentlyContinue
-npm install --legacy-peer-deps
 ```
 
 ## Sunucuları Başlatmak

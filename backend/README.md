@@ -57,28 +57,17 @@ CREATE TABLE users (
 
 ## Backend Kurulumu
 
-### Adım 1: NPM Cache Temizliği
-```bash
-npm cache clean --force
-```
-
-### Adım 2: Backend Klasörüne Gidin
+### Adım 1: Backend Klasörüne Gidin
 ```bash
 cd LifeSync/backend
 ```
 
-### Adım 3: Eski Paketleri Temizleyin (İlk Kurulumsa gerekli değil)
-```bash
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-rm -r package-lock.json -ErrorAction SilentlyContinue
-```
-
-### Adım 4: Paketleri Kurun
+### Adım 2: Paketleri Kurun
 ```bash
 npm install --legacy-peer-deps
 ```
 
-### Adım 5: .env Dosyasını Oluşturun
+### Adım 3: .env Dosyasını Oluşturun
 ```bash
 # .env.example dosyasını kopyalayın
 cp .env.example .env
@@ -89,7 +78,7 @@ cp .env.example .env
 # JWT_SECRET=your_secret_key
 ```
 
-### Adım 6: Backend Sunucusunu Başlatın
+### Adım 4: Backend Sunucusunu Başlatın
 
 **Geliştirme Modu** (otomatik restart ile):
 ```bash
