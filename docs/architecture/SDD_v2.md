@@ -1,67 +1,66 @@
-# LifeSync – Yazılım Tasarım Dokümanı (SDD) v2
+# LifeSync – Software Design Document (SDD) v2
 
-**Versiyon:** 2.0
-**Tarih:** 2025-03-15
-**Durum:** Güncel (Sprint 1 sonrası güncelleme)
-
----
-
-## 1. Değişiklik Özeti (v1 → v2)
-
-- Bileşen diyagramı detaylandırıldı: JWT Middleware bileşeni eklendi
-- Sınıf diyagramı eklendi (User modeli, Controller'lar)
-- Arayüz input/output parametreleri tanımlandı
-- Dashboard ve anket bileşenleri eklendi
+**Version:** 2.0
+**Date:** 2025-03-15
+**Status:** Current (Post-Sprint 1 Update)
 
 ---
 
-## 2. Mimari: Katmanlı Mimari (Layered Architecture)
+## 1. Change Summary (v1 → v2)
 
-Seçim v1'den itibaren aynıdır. 3 ana katman:
-
-1. **Sunum Katmanı** → React SPA (port 5173)
-2. **İş Mantığı Katmanı** → Express.js API (port 5000)
-3. **Veri Katmanı** → PostgreSQL (port 5432)
+- Component diagram expanded: JWT Middleware component added
+- Class diagram added (User model, Controllers)
+- Interface input/output parameters defined
+- Dashboard and survey components added
 
 ---
 
-## 3. Detaylı Bileşen Diyagramı
+## 2. Architecture: Layered Architecture
 
+The selection remains the same as v1. 3 main layers:
+
+1. **Presentation Layer** → React SPA (port 5173)
+2. **Business Logic Layer** → Express.js API (port 5000)
+3. **Data Layer** → PostgreSQL (port 5432)
+
+---
+
+## 3. Detailed Component Diagram
 ```mermaid
 graph TB
-    subgraph PL["🖥️ Sunum Katmanı"]
+    subgraph PL["Presentation Layer"]
         subgraph FE["React Frontend"]
             AUTH_P["AuthPage\n(Login/Register)"]
-            DASH_P["Dashboard\n(Sağlık Metrikleri)"]
-            SURVEY_P["OnboardingSurvey\n(Sağlık Anketi)"]
-            PROFILE_P["EditProfile\n(Profil Düzenle)"]
+            DASH_P["Dashboard\n(Health Metrics)"]
+            SURVEY_P["OnboardingSurvey\n(Health Questionnaire)"]
+            PROFILE_P["EditProfile\n(Edit Profile)"]
             PROT_R["ProtectedRoute\n(Guard)"]
         end
     end
 
-    subgraph BL["⚙️ İş Mantığı Katmanı"]
+    subgraph BL["Business Logic Layer"]
         subgraph BE["Express.js API Server"]
-            MW["JWT Middleware\n(Kimlik Doğrulama)"]
+            MW["JWT Middleware\n(Authentication)"]
             AC["AuthController\n(/api/auth)"]
             DC["DashboardController\n(/api/dashboard)"]
             PC["ProfileController\n(/api/profile)"]
         end
     end
 
-    subgraph DL["🗄️ Veri Katmanı"]
+    subgraph DL["Data Layer"]
         UM["User Model\n(CRUD)"]
-        DB[("PostgreSQL\nusers tablosu")]
+        DB[("PostgreSQL\nusers table")]
     end
 
     AUTH_P -->|"POST /auth/register\nPOST /auth/login"| AC
     DASH_P -->|"GET /dashboard"| DC
     SURVEY_P -->|"POST /dashboard/survey"| DC
     PROFILE_P -->|"GET|PUT /profile"| PC
-    PROT_R -->|"token kontrolü"| MW
+    PROT_R -->|"token check"| MW
 
-    MW -->|"JWT doğrulama"| AC
-    MW -->|"JWT doğrulama"| DC
-    MW -->|"JWT doğrulama"| PC
+    MW -->|"JWT validation"| AC
+    MW -->|"JWT validation"| DC
+    MW -->|"JWT validation"| PC
 
     AC --> UM
     DC --> UM
@@ -71,8 +70,7 @@ graph TB
 
 ---
 
-## 4. Sınıf Diyagramı
-
+## 4. Class Diagram
 ```mermaid
 classDiagram
     class User {
@@ -113,34 +111,34 @@ classDiagram
         +authenticate(req, res, next) void
     }
 
-    AuthController --> User : kullanır
-    DashboardController --> User : kullanır
-    ProfileController --> User : kullanır
-    JwtMiddleware ..> AuthController : korur
-    JwtMiddleware ..> DashboardController : korur
-    JwtMiddleware ..> ProfileController : korur
+    AuthController --> User : uses
+    DashboardController --> User : uses
+    ProfileController --> User : uses
+    JwtMiddleware ..> AuthController : protects
+    JwtMiddleware ..> DashboardController : protects
+    JwtMiddleware ..> ProfileController : protects
 ```
 
 ---
 
-## 5. Arayüz Tanımları
+## 5. Interface Definitions
 
 ### 5.1 POST /api/auth/register
 
 **Input:**
 ```json
 {
-  "first_name": "string (zorunlu)",
-  "last_name": "string (zorunlu)",
-  "email": "string (zorunlu, unique)",
-  "password": "string (zorunlu, min 6 karakter)"
+  "first_name": "string (required)",
+  "last_name": "string (required)",
+  "email": "string (required, unique)",
+  "password": "string (required, min 6 characters)"
 }
 ```
 
 **Output (200 OK):**
 ```json
 {
-  "message": "Kayıt başarılı",
+  "message": "Registration successful",
   "token": "JWT_TOKEN",
   "user": {
     "user_id": "uuid",
@@ -158,15 +156,15 @@ classDiagram
 **Input:**
 ```json
 {
-  "email": "string (zorunlu)",
-  "password": "string (zorunlu)"
+  "email": "string (required)",
+  "password": "string (required)"
 }
 ```
 
 **Output (200 OK):**
 ```json
 {
-  "message": "Giriş başarılı",
+  "message": "Login successful",
   "token": "JWT_TOKEN",
   "user": { "user_id": "...", "email": "...", "first_name": "...", "last_name": "..." }
 }
@@ -174,7 +172,7 @@ classDiagram
 
 **Output (401 Unauthorized):**
 ```json
-{ "error": "Geçersiz email veya şifre" }
+{ "error": "Invalid email or password" }
 ```
 
 ---
@@ -227,14 +225,13 @@ classDiagram
 ```json
 {
   "classification": "Beginner | Intermediate | Advanced",
-  "message": "Sınıflandırma mesajı"
+  "message": "Classification message"
 }
 ```
 
 ---
 
-## 6. Veritabanı Şeması
-
+## 6. Database Schema
 ```sql
 CREATE TABLE users (
     user_id    VARCHAR(36)  PRIMARY KEY,
@@ -251,4 +248,4 @@ CREATE TABLE users (
 
 ---
 
-*Sonraki versiyon: Ollama entegrasyonu, sequence diyagramları ve deployment diyagramı eklenecektir.*
+*Next version: Ollama integration, sequence diagrams, and deployment diagram will be added.*
