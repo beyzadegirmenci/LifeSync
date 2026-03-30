@@ -223,7 +223,7 @@ function OnboardingSurvey() {
           </div>
 
           <div className="results-actions">
-            <button 
+            <button
               className="btn btn-secondary"
               onClick={() => {
                 setExercisePlan(null);
@@ -231,11 +231,16 @@ function OnboardingSurvey() {
               }}
             >
               Başka Plan Oluştur
-                Dashboard'a Dön
-              </button>
-            </div>
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate('/dashboard')}
+            >
+              Dashboard'a Dön
+            </button>
           </div>
         </div>
+      </div>
       );
     }
 

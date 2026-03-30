@@ -354,8 +354,17 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
             });
         } catch (error) {
             console.error('Diet plan error:', error.message);
-            res.status(503).json({ 
-                error: 'Ollama servisi yanıt vermedi. Lütfen Ollama\' nın çalıştığından emin olun ve tekrar deneyin. Hata: ' + error.message 
+            const defaultPlan = this.getDefaultDietPlan();
+            res.json({
+                diet_plan: {
+                    raw_text: defaultPlan,
+                    metadata: {
+                        model: 'default',
+                        done: true,
+                        source: 'fallback',
+                        error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
+                    }
+                }
             });
         }
     },
@@ -722,8 +731,18 @@ Lütfen ${durationLabel} detaylı beslenme planı oluştur.
             });
         } catch (error) {
             console.error('Exercise plan error:', error.message);
-            res.status(503).json({ 
-                error: 'Ollama servisi yanıt vermedi. Lütfen Ollama\'nın çalıştığından emin olun ve tekrar deneyin. Hata: ' + error.message 
+            const level = req.body.classification?.level || 'Beginner';
+            const defaultPlan = this.getDefaultExercisePlan(level);
+            res.json({
+                exercise_plan: {
+                    raw_text: defaultPlan,
+                    metadata: {
+                        model: 'default',
+                        done: true,
+                        source: 'fallback',
+                        error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
+                    }
+                }
             });
         }
     },
