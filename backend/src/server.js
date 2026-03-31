@@ -13,8 +13,12 @@ const PORT = process.env.PORT || process.env.BACKEND_PORT || 5000;
 
 connectDB();
 
+const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',')
+    : ['http://localhost:5173'];
+
 const corsOptions = {
-    origin: '*',
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 };

@@ -312,6 +312,30 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
                 return res.status(400).json({ error: 'Gerekli alanlar eksik' });
             }
 
+            // Type and range validation
+            const age = parseInt(profile.age);
+            const height = parseFloat(profile.height_cm);
+            const weight = parseFloat(profile.weight_kg);
+            const exerciseDays = parseInt(profile.exercise_days_per_week);
+            const sleepHours = parseFloat(profile.sleep_hours);
+            const water = parseFloat(profile.water_liters_per_day);
+            const screen = parseFloat(profile.screen_hours_per_day);
+
+            if (isNaN(age) || age < 10 || age > 120)
+                return res.status(400).json({ error: 'Yaş 10-120 arasında olmalıdır' });
+            if (isNaN(height) || height < 100 || height > 250)
+                return res.status(400).json({ error: 'Boy 100-250 cm arasında olmalıdır' });
+            if (isNaN(weight) || weight < 30 || weight > 300)
+                return res.status(400).json({ error: 'Kilo 30-300 kg arasında olmalıdır' });
+            if (isNaN(exerciseDays) || exerciseDays < 0 || exerciseDays > 7)
+                return res.status(400).json({ error: 'Egzersiz günü 0-7 arasında olmalıdır' });
+            if (isNaN(sleepHours) || sleepHours < 0 || sleepHours > 24)
+                return res.status(400).json({ error: 'Uyku süresi 0-24 saat arasında olmalıdır' });
+            if (isNaN(water) || water < 0 || water > 20)
+                return res.status(400).json({ error: 'Su tüketimi 0-20 litre arasında olmalıdır' });
+            if (isNaN(screen) || screen < 0 || screen > 24)
+                return res.status(400).json({ error: 'Ekran süresi 0-24 saat arasında olmalıdır' });
+
             // Classify user
             const classification = this.classifyUser(profile);
 

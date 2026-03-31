@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const tokenBlacklist = require('../utils/tokenBlacklist');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lifesync-dev-secret';
 const JWT_EXPIRES_IN = '7d';
@@ -98,9 +99,10 @@ const authController = {
 
     
     async logout(req, res) {
-        
-        
-        
+        const token = req.headers.authorization?.split(' ')[1];
+        if (token) {
+            tokenBlacklist.add(token);
+        }
         res.json({ message: 'Logged out successfully' });
     },
 

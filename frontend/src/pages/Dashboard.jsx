@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchDashboard();
@@ -20,9 +21,13 @@ function Dashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(res.data);
-    } catch {
-      localStorage.removeItem('token');
-      navigate('/login');
+    } catch (err) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        setError('Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
+      }
     } finally {
       setLoading(false);
     }
@@ -37,6 +42,14 @@ function Dashboard() {
     return (
       <div className="dashboard">
         <p className="dashboard-loading">Loading...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard">
+        <p className="dashboard-loading">{error}</p>
       </div>
     );
   }

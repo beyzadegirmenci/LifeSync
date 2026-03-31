@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const tokenBlacklist = require('../utils/tokenBlacklist');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lifesync-dev-secret';
 
@@ -10,6 +11,10 @@ const authMiddleware = (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
+
+    if (tokenBlacklist.has(token)) {
+        return res.status(401).json({ error: 'Oturum sonlandırıldı. Lütfen tekrar giriş yapın.' });
+    }
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);

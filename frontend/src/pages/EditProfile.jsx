@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function EditProfile() {
   const navigate = useNavigate();
@@ -40,9 +40,13 @@ function EditProfile() {
         age: u.age || '',
         gender: u.gender || ''
       });
-    } catch {
-      localStorage.removeItem('token');
-      navigate('/login');
+    } catch (err) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        setLoading(false);
+      }
     } finally {
       setLoading(false);
     }
