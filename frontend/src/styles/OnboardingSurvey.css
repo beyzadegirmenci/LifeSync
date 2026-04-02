@@ -1,15 +1,21 @@
 .survey-container {
-  max-width: 900px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 40px 20px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0 8px 28px;
+  background: transparent;
 }
 
 .survey-container.results-view {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+}
+
+.survey-dashboard {
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+.survey-content {
+  max-width: 1240px;
 }
 
 .survey-card,
@@ -21,7 +27,7 @@
 }
 
 .results-card {
-  max-width: 800px;
+  max-width: 1160px;
   width: 100%;
 }
 
@@ -290,7 +296,7 @@
   border: 1px solid #eee;
   border-radius: 8px;
   padding: 20px;
-  max-height: 400px;
+  max-height: 520px;
   overflow-y: auto;
 }
 
@@ -314,6 +320,35 @@
 
 .recommendation-content p:last-child {
   margin-bottom: 0;
+}
+
+.formatted-content h4 {
+  margin: 18px 0 10px;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.formatted-content h5 {
+  margin: 14px 0 8px;
+  color: #475569;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.formatted-content h4:first-child {
+  margin-top: 0;
+}
+
+.formatted-list {
+  margin: 0 0 12px 0;
+  padding-left: 18px;
+}
+
+.formatted-list li {
+  color: #475569;
+  line-height: 1.7;
+  margin-bottom: 6px;
 }
 
 .results-actions {

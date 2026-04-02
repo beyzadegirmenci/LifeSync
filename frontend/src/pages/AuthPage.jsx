@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -9,6 +9,7 @@ function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
 
   const [form, setForm] = useState({
     email: '',
@@ -21,6 +22,29 @@ function AuthPage() {
     age: '',
     gender: ''
   });
+
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setAuthChecking(false);
+        return;
+      }
+
+      try {
+        await axios.get(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        navigate('/dashboard', { replace: true });
+      } catch {
+        localStorage.removeItem('token');
+        setAuthChecking(false);
+      }
+    };
+
+    checkExistingSession();
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -69,6 +93,19 @@ function AuthPage() {
     setError('');
     setForm({ email: '', password: '', passwordConfirm: '', firstName: '', lastName: '', height: '', weight: '', age: '', gender: '' });
   };
+
+  if (authChecking) {
+    return (
+      <div className="app">
+        <div className="auth-container">
+          <div className="auth-card">
+            <h1>LifeSync</h1>
+            <p className="subtitle">Checking your session...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">

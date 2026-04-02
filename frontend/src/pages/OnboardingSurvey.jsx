@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/OnboardingSurvey.css';
@@ -21,6 +21,11 @@ function OnboardingSurvey() {
   const [exercisePlan, setExercisePlan] = useState(null);
   const [exercisePlanLoading, setExercisePlanLoading] = useState(false);
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
   const [form, setForm] = useState({
     age: '',
     gender: '',
@@ -36,6 +41,34 @@ function OnboardingSurvey() {
     screen_hours_per_day: '',
     health_note: ''
   });
+
+  useEffect(() => {
+    const prefillFromProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const user = res.data?.user;
+        if (!user) return;
+
+        // Keep existing user edits if they already exist in form state.
+        setForm(prev => ({
+          ...prev,
+          age: prev.age || (user.age != null ? String(user.age) : ''),
+          gender: prev.gender || (user.gender || ''),
+          height_cm: prev.height_cm || (user.height != null ? String(user.height) : ''),
+          weight_kg: prev.weight_kg || (user.weight != null ? String(user.weight) : '')
+        }));
+      } catch {
+        localStorage.removeItem('token');
+        navigate('/login');
+      }
+    };
+
+    prefillFromProfile();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -168,17 +201,103 @@ function OnboardingSurvey() {
     }
   };
 
+  const renderFormattedText = (text) => {
+    if (!text) return null;
+
+    const formatInline = (input) => {
+      const parts = input.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+      return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={`strong-${idx}`}>{part.slice(2, -2)}</strong>;
+        }
+        return <span key={`span-${idx}`}>{part}</span>;
+      });
+    };
+
+    const lines = text.split('\n');
+    const elements = [];
+    let listItems = [];
+    let key = 0;
+
+    const flushList = () => {
+      if (listItems.length > 0) {
+        elements.push(
+          <ul key={`list-${key++}`} className="formatted-list">
+            {listItems.map((item, idx) => (
+              <li key={`li-${idx}`}>{formatInline(item)}</li>
+            ))}
+          </ul>
+        );
+        listItems = [];
+      }
+    };
+
+    lines.forEach((raw) => {
+      const line = raw.trim();
+
+      if (!line) {
+        flushList();
+        return;
+      }
+
+      if (line.startsWith('## ')) {
+        flushList();
+        const heading = line
+          .replace(/^##\s*/, '')
+          .replace(/^\d+\.\s*/, '')
+          .trim();
+        elements.push(<h4 key={`h-${key++}`}>{formatInline(heading)}</h4>);
+        return;
+      }
+
+      if (/^\*\*.+\*\*$/.test(line)) {
+        flushList();
+        const subtitle = line.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+        elements.push(<h5 key={`h5-${key++}`}>{formatInline(subtitle)}</h5>);
+        return;
+      }
+
+      if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s+/.test(line)) {
+        const item = line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+        listItems.push(item);
+        return;
+      }
+
+      flushList();
+      elements.push(<p key={`p-${key++}`}>{formatInline(line.replace(/^#+\s*/, '').trim())}</p>);
+    });
+
+    flushList();
+    return <div className="formatted-content">{elements}</div>;
+  };
+
+  const withPageShell = (content) => (
+    <div className="dashboard survey-dashboard">
+      <nav className="dashboard-nav">
+        <h1 className="nav-logo">LifeSync</h1>
+        <div className="nav-right">
+          <button className="btn btn-nav-back" onClick={() => navigate('/dashboard')}>
+            ← Dashboard
+          </button>
+          <button className="btn btn-nav-logout" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </nav>
+
+      <main className="dashboard-content survey-content">{content}</main>
+    </div>
+  );
+
   // Diet Plan View
   if (showResults && dietPlan) {
-    return (
+    return withPageShell(
         <div className="survey-container results-view">
           <div className="results-card">
           <h2>🍽️ {dietPlanDuration === 'daily' ? 'Günlük' : dietPlanDuration === 'weekly' ? 'Haftalık' : 'Aylık'} Diyet Planı</h2>
           
           <div className="diet-plan-content">
-            {dietPlan.raw_text.split('\n').map((line, idx) => (
-              line.trim() ? <p key={idx}>{line}</p> : <br key={idx} />
-            ))}
+            {renderFormattedText(dietPlan.raw_text)}
           </div>
 
           <div className="results-actions">
@@ -190,12 +309,6 @@ function OnboardingSurvey() {
               }}
             >
               Başka Plan Oluştur
-            </button>
-            <button 
-              className="btn btn-primary"
-              onClick={() => setShowExercisePlanModal(true)}
-            >
-              💪 Egzersiz Planı Oluştur
             </button>
             <button 
               className="btn btn-secondary"
@@ -211,15 +324,13 @@ function OnboardingSurvey() {
 
   // Exercise Plan View
   if (showResults && exercisePlan) {
-    return (
+    return withPageShell(
       <div className="survey-container results-view">
         <div className="results-card">
           <h2>💪 {exercisePlanDuration === 'daily' ? 'Günlük' : exercisePlanDuration === 'weekly' ? 'Haftalık' : 'Aylık'} Egzersiz Planı</h2>
           
           <div className="diet-plan-content">
-            {exercisePlan.raw_text.split('\n').map((line, idx) => (
-              line.trim() ? <p key={idx}>{line}</p> : <br key={idx} />
-            ))}
+            {renderFormattedText(exercisePlan.raw_text)}
           </div>
 
           <div className="results-actions">
@@ -246,7 +357,7 @@ function OnboardingSurvey() {
 
   // Survey Results View
   if (showResults) {
-    return (
+    return withPageShell(
       <div className="survey-container results-view">
         <div className="results-card">
           <h2>Sağlık Değerlendirmesi Sonuçları</h2>
@@ -290,9 +401,7 @@ function OnboardingSurvey() {
                 <span>Model: {recommendation.metadata.model}</span>
               </div>
               <div className="recommendation-content">
-                {recommendation.raw_text.split('\n').map((line, idx) => (
-                  line.trim() ? <p key={idx}>{line}</p> : <br key={idx} />
-                ))}
+                {renderFormattedText(recommendation.raw_text)}
               </div>
             </div>
           </div>
@@ -444,7 +553,7 @@ function OnboardingSurvey() {
     );
   }
 
-  return (
+  return withPageShell(
     <div className="survey-container">
       <div className="survey-card">
         <h1>LifeSync Sağlık Anketi</h1>

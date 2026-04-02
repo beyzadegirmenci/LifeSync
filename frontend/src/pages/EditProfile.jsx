@@ -99,6 +99,7 @@ function EditProfile() {
       setUser(res.data.user);
       setForm(prev => ({ ...prev, password: '', passwordConfirm: '' }));
       setSuccess('Profile updated successfully!');
+      setTimeout(() => navigate('/dashboard'), 700);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update profile');
     } finally {

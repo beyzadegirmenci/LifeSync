@@ -1,8 +1,20 @@
 const User = require('../models/User');
 const axios = require('axios');
+const WellnessPlanFacade = require('../facades/WellnessPlanFacade');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+
+const createWellnessPlanFacade = (controller) => new WellnessPlanFacade({
+    defaultModel: DEFAULT_MODEL,
+    generateRecommendation: controller.generateRecommendation.bind(controller),
+    buildDietPlanPrompt: controller.buildDietPlanPrompt.bind(controller),
+    generateDietPlan: controller.generateDietPlan.bind(controller),
+    getDefaultDietPlan: controller.getDefaultDietPlan.bind(controller),
+    buildExercisePlanPrompt: controller.buildExercisePlanPrompt.bind(controller),
+    generateExercisePlan: controller.generateExercisePlan.bind(controller),
+    getDefaultExercisePlan: controller.getDefaultExercisePlan.bind(controller)
+});
 
 const dashboardController = {
     async getDashboard(req, res) {
@@ -339,8 +351,9 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
             // Classify user
             const classification = this.classifyUser(profile);
 
-            // Generate recommendation (Ollama or default)
-            const recommendation = await this.generateRecommendation(profile, classification);
+            // Facade handles recommendation generation complexity behind one simple API.
+            const wellnessPlanFacade = createWellnessPlanFacade(this);
+            const recommendation = await wellnessPlanFacade.generateSurveyRecommendation(profile, classification);
 
             // Save profile data to user (optional)
             // await User.saveProfileSurvey(userId, profile, classification);
@@ -359,23 +372,14 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
         try {
             const { profile, classification, duration } = req.body;
 
-            // Debug logging
-            console.log('Diet Plan Request:', { profile, classification, duration });
+            const wellnessPlanFacade = createWellnessPlanFacade(this);
+            const result = await wellnessPlanFacade.generateDietPlanResult(profile, classification, duration);
 
-            if (!duration || !['daily', 'weekly', 'monthly'].includes(duration)) {
-                return res.status(400).json({ error: 'Geçersiz zaman aralığı' });
+            if (result.error) {
+                return res.status(result.statusCode || 400).json({ error: result.error });
             }
 
-            // Build diet plan prompt
-            const durationLabel = duration === 'daily' ? 'günlük' : duration === 'weekly' ? 'haftalık' : 'aylık';
-            const prompt = this.buildDietPlanPrompt(profile, classification, durationLabel, duration);
-
-            // Generate diet plan - will throw error if Ollama fails
-            const dietPlan = await this.generateDietPlan(prompt);
-
-            res.json({
-                diet_plan: dietPlan
-            });
+            return res.status(result.statusCode || 200).json(result.data);
         } catch (error) {
             console.error('Diet plan error:', error.message);
             const defaultPlan = this.getDefaultDietPlan();
@@ -739,20 +743,14 @@ Lütfen ${durationLabel} detaylı beslenme planı oluştur.
         try {
             const { profile, classification, duration } = req.body;
 
-            if (!duration || !['daily', 'weekly', 'monthly'].includes(duration)) {
-                return res.status(400).json({ error: 'Geçersiz zaman aralığı' });
+            const wellnessPlanFacade = createWellnessPlanFacade(this);
+            const result = await wellnessPlanFacade.generateExercisePlanResult(profile, classification, duration);
+
+            if (result.error) {
+                return res.status(result.statusCode || 400).json({ error: result.error });
             }
 
-            // Build exercise plan prompt
-            const durationLabel = duration === 'daily' ? 'günlük' : duration === 'weekly' ? 'haftalık' : 'aylık';
-            const prompt = this.buildExercisePlanPrompt(profile, classification, durationLabel);
-
-            // Generate exercise plan - will throw error if Ollama fails
-            const exercisePlan = await this.generateExercisePlan(prompt, DEFAULT_MODEL, classification.level);
-
-            res.json({
-                exercise_plan: exercisePlan
-            });
+            return res.status(result.statusCode || 200).json(result.data);
         } catch (error) {
             console.error('Exercise plan error:', error.message);
             const level = req.body.classification?.level || 'Beginner';
