@@ -59,8 +59,9 @@ Kişiye özel beslenme ve egzersiz planları üretmek için Ollama gereklidir:
 
 1. https://ollama.ai adresinden Ollama'yı indirin
 2. Ollama'yı başlatın
-3. Model indirin: `ollama pull llama2` veya `ollama pull mistral`
-4. Ollama'nın çalıştığından emin olun (http://localhost:11434)
+3. Model indirin (hız için önerilen): `ollama pull llama3.2:3b`
+4. `backend/.env` dosyasına ekleyin: `OLLAMA_MODEL=llama3.2:3b`
+5. Ollama'nın çalıştığından emin olun (http://localhost:11434)
 
 ## Erişim
 

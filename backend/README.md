@@ -75,7 +75,14 @@ cp .env.example .env
 # .env dosyasını düzenleyin ve veritabanı bilgilerini ekleyin:
 # DATABASE_URL=postgresql://pattern:pattern@localhost:5432/lifesync
 # OLLAMA_URL=http://localhost:11434/api/generate (opsiyonel)
+# OLLAMA_MODEL=llama3.2:3b (hız için önerilen)
 # JWT_SECRET=your_secret_key
+```
+
+Ollama kullanacaksanız önce modeli indirin:
+
+```bash
+ollama pull llama3.2:3b
 ```
 
 ### Adım 4: Backend Sunucusunu Başlatın

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import '../styles/OnboardingSurvey.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -271,6 +272,202 @@ function OnboardingSurvey() {
     return <div className="formatted-content">{elements}</div>;
   };
 
+  const planDurationLabel = (duration) => (
+    duration === 'daily' ? 'Günlük' : duration === 'weekly' ? 'Haftalık' : 'Aylık'
+  );
+
+  const getDayLabelFromLine = (line, fallbackIndex) => {
+    const dayMatch = line.match(/(?:^|\s)(?:g[uü]n|day)\s*(\d{1,2})\b/i);
+    if (dayMatch) return `Gün ${parseInt(dayMatch[1], 10)}`;
+
+    const weekdays = ['pazartesi', 'sali', 'salı', 'carsamba', 'çarşamba', 'persembe', 'perşembe', 'cuma', 'cumartesi', 'pazar'];
+    const normalized = line.toLowerCase();
+    for (const dayName of weekdays) {
+        if (normalized.includes(dayName)) {
+          const pretty = dayName
+            .replace('sali', 'Salı')
+            .replace('salı', 'Salı')
+            .replace('carsamba', 'Çarşamba')
+            .replace('çarşamba', 'Çarşamba')
+            .replace('persembe', 'Perşembe')
+            .replace('perşembe', 'Perşembe')
+            .replace('pazartesi', 'Pazartesi')
+            .replace('cuma', 'Cuma')
+            .replace('cumartesi', 'Cumartesi')
+            .replace('pazar', 'Pazar');
+          return pretty;
+        }
+    }
+
+    return `Gün ${fallbackIndex}`;
+  };
+
+  const normalizeSectionKey = (line, planType) => {
+    const text = line.toLowerCase();
+    if (planType === 'diet') {
+      if (/(kahvalt[ıi]|sabah)/i.test(text)) return 'Kahvaltı';
+      if (/(öğle|ogle|öğlen|oglen|lunch)/i.test(text)) return 'Öğle';
+      if (/(ara\s*öğün|ara\s*ogun|snack)/i.test(text)) return 'Ara Öğün';
+      if (/(akşam|aksam|dinner)/i.test(text)) return 'Akşam';
+      if (/(gece)/i.test(text)) return 'Gece';
+      return 'Notlar';
+    }
+
+    if (/(ısınma|isinma|warm-?up)/i.test(text)) return 'Isınma';
+    if (/(ana\s*egzersiz|ana\s*antrenman|workout|antrenman|egzersiz)/i.test(text)) return 'Ana Antrenman';
+    if (/(soğuma|soguma|cool\s*down|cooldown)/i.test(text)) return 'Soğuma';
+    if (/(dinlenme|rest)/i.test(text)) return 'Dinlenme';
+    return 'Notlar';
+  };
+
+  // Returns { days: string[], sections: string[], data: Record<section, Record<day, string>> }
+  const parsePlanMatrix = (rawText, planType) => {
+    if (!rawText) return { days: [], sections: [], data: {} };
+
+    const sectionKeys = planType === 'diet'
+      ? ['Kahvaltı', 'Öğle', 'Ara Öğün', 'Akşam', 'Gece', 'Notlar']
+      : ['Isınma', 'Ana Antrenman', 'Soğuma', 'Dinlenme', 'Notlar'];
+
+    const days = [];
+    const data = {};
+    sectionKeys.forEach((s) => { data[s] = {}; });
+
+    let currentDay = null;
+    let currentSection = 'Notlar';
+    let fallbackIndex = 1;
+
+    const ensureDay = (label) => {
+      if (!days.includes(label)) days.push(label);
+      sectionKeys.forEach((s) => {
+        if (data[s][label] === undefined) data[s][label] = '';
+      });
+    };
+
+    const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean);
+
+    for (const line of lines) {
+      const isDayHeading = /^(#{1,6}\s*)?((g[uü]n\s*\d{1,2})|(day\s*\d{1,2})|pazartesi|sal[ıi]|[çc]ar[sş]amba|per[sş]embe|cuma|cumartesi|pazar)\b/i.test(line);
+      if (isDayHeading) {
+        const label = getDayLabelFromLine(line, fallbackIndex);
+        ensureDay(label);
+        currentDay = label;
+        currentSection = 'Notlar';
+        fallbackIndex += 1;
+        continue;
+      }
+
+      if (!currentDay) {
+        const label = `Gün ${fallbackIndex}`;
+        ensureDay(label);
+        currentDay = label;
+        fallbackIndex += 1;
+      }
+
+      const cleaned = line
+        .replace(/^[-*]\s+/, '')
+        .replace(/^\d+\.\s+/, '')
+        .replace(/^#+\s*/, '')
+        .trim();
+
+      if (!cleaned) continue;
+
+      if (/^\*\*.*\*\*$/.test(cleaned) || /:$/.test(cleaned)) {
+        const key = normalizeSectionKey(cleaned.replace(/\*\*/g, '').replace(/:$/, '').trim(), planType);
+        if (sectionKeys.includes(key)) currentSection = key;
+        continue;
+      }
+
+      if (data[currentSection]) {
+        data[currentSection][currentDay] = data[currentSection][currentDay]
+          ? `${data[currentSection][currentDay]}\n${cleaned}`
+          : cleaned;
+      }
+    }
+
+    // Drop sections with no content across all days
+    const usedSections = sectionKeys.filter((s) =>
+      days.some((d) => data[s][d] && data[s][d].trim())
+    );
+
+    return { days, sections: usedSections, data };
+  };
+
+  const exportPlanAsExcel = (rawText, duration, planType) => {
+    const { days, sections, data } = parsePlanMatrix(rawText, planType);
+
+    if (!days.length || !sections.length) {
+      setError('Plan tablosu oluşturulamadı, lütfen tekrar deneyin.');
+      return;
+    }
+
+    // Build aoa (array of arrays): first row = ['Öğün', ...days], then one row per section
+    const header = ['Öğün', ...days];
+    const bodyRows = sections.map((section) => [
+      section,
+      ...days.map((day) => (data[section][day] || '').replace(/\n/g, ' | '))
+    ]);
+    const aoa = [header, ...bodyRows];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Column widths: first col narrow, day cols wider
+    worksheet['!cols'] = [
+      { wch: 14 },
+      ...days.map(() => ({ wch: 38 }))
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    const sheetName = planType === 'diet' ? 'Diyet Planı' : 'Egzersiz Planı';
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'
+    });
+
+    const planLabel = planType === 'diet' ? 'diyet' : 'egzersiz';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `lifesync_${planLabel}_${duration}_plan.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderPlanTable = (rawText, planType) => {
+    const { days, sections, data } = parsePlanMatrix(rawText, planType);
+    if (!days.length) return null;
+
+    return (
+      <div className="plan-table-wrapper">
+        <table className="plan-table">
+          <thead>
+            <tr>
+              <th>Öğün</th>
+              {days.map((day) => <th key={day}>{day}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map((section) => (
+              <tr key={section}>
+                <td className="plan-table-section-label">{section}</td>
+                {days.map((day) => (
+                  <td key={`${section}-${day}`}>
+                    {(data[section][day] || '').split('\n').map((line, i) => (
+                      <span key={i}>{line}{i < (data[section][day] || '').split('\n').length - 1 && <br />}</span>
+                    ))}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const withPageShell = (content) => (
     <div className="dashboard survey-dashboard">
       <nav className="dashboard-nav">
@@ -294,7 +491,20 @@ function OnboardingSurvey() {
     return withPageShell(
         <div className="survey-container results-view">
           <div className="results-card">
-          <h2>🍽️ {dietPlanDuration === 'daily' ? 'Günlük' : dietPlanDuration === 'weekly' ? 'Haftalık' : 'Aylık'} Diyet Planı</h2>
+          <div className="plan-header-row">
+            <h2>🍽️ {planDurationLabel(dietPlanDuration)} Diyet Planı</h2>
+            <button
+              type="button"
+              className="excel-export-btn"
+              onClick={() => exportPlanAsExcel(dietPlan.raw_text, dietPlanDuration, 'diet')}
+              title="Excel Olarak Dışa Aktar"
+            >
+              <span className="excel-icon" aria-hidden="true">📗</span>
+              <span>Excel'e Aktar</span>
+            </button>
+          </div>
+
+          {renderPlanTable(dietPlan.raw_text, 'diet')}
           
           <div className="diet-plan-content">
             {renderFormattedText(dietPlan.raw_text)}
@@ -327,7 +537,20 @@ function OnboardingSurvey() {
     return withPageShell(
       <div className="survey-container results-view">
         <div className="results-card">
-          <h2>💪 {exercisePlanDuration === 'daily' ? 'Günlük' : exercisePlanDuration === 'weekly' ? 'Haftalık' : 'Aylık'} Egzersiz Planı</h2>
+          <div className="plan-header-row">
+            <h2>💪 {planDurationLabel(exercisePlanDuration)} Egzersiz Planı</h2>
+            <button
+              type="button"
+              className="excel-export-btn"
+              onClick={() => exportPlanAsExcel(exercisePlan.raw_text, exercisePlanDuration, 'exercise')}
+              title="Excel Olarak Dışa Aktar"
+            >
+              <span className="excel-icon" aria-hidden="true">📗</span>
+              <span>Excel'e Aktar</span>
+            </button>
+          </div>
+
+          {renderPlanTable(exercisePlan.raw_text, 'exercise')}
           
           <div className="diet-plan-content">
             {renderFormattedText(exercisePlan.raw_text)}

@@ -525,6 +525,97 @@
   font-style: italic;
 }
 
+.plan-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.excel-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #177245;
+  background: linear-gradient(180deg, #1e8e57, #177245);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.excel-export-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(23, 114, 69, 0.2);
+}
+
+.excel-export-btn:active {
+  transform: translateY(0);
+}
+
+.excel-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.plan-table-wrapper {
+  border: 1px solid #e8ecef;
+  border-radius: 8px;
+  background: #fff;
+  max-height: 340px;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.plan-table th,
+.plan-table td {
+  border-bottom: 1px solid #eef2f5;
+  border-right: 1px solid #eef2f5;
+  text-align: left;
+  vertical-align: top;
+  padding: 10px;
+  font-size: 13px;
+  color: #23303a;
+  line-height: 1.45;
+}
+
+.plan-table th:last-child,
+.plan-table td:last-child {
+  border-right: none;
+}
+
+.plan-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f5f8fa;
+  font-weight: 700;
+}
+
+.plan-table tbody tr:nth-child(even) td {
+  background: #fafcfd;
+}
+
+.plan-table-section-label {
+  font-weight: 700;
+  color: #667eea;
+  white-space: nowrap;
+  background: #f0f2ff !important;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
 @media (max-width: 768px) {
   .survey-card {
     padding: 20px;
@@ -573,5 +664,14 @@
 
   .modal-actions .btn {
     width: 100%;
+  }
+
+  .plan-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .excel-export-btn {
+    justify-content: center;
   }
 }

@@ -3,7 +3,7 @@ const axios = require('axios');
 const WellnessPlanFacade = require('../facades/WellnessPlanFacade');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
 
 const createWellnessPlanFacade = (controller) => new WellnessPlanFacade({
     defaultModel: DEFAULT_MODEL,
@@ -382,30 +382,32 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
             return res.status(result.statusCode || 200).json(result.data);
         } catch (error) {
             console.error('Diet plan error:', error.message);
-            const defaultPlan = this.getDefaultDietPlan();
-            res.json({
-                diet_plan: {
-                    raw_text: defaultPlan,
-                    metadata: {
-                        model: 'default',
-                        done: true,
-                        source: 'fallback',
-                        error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
-                    }
-                }
+            return res.status(503).json({
+                error: 'AI beslenme planı şu anda üretilemedi. Lütfen kısa süre sonra tekrar deneyin.'
             });
         }
     },
 
     buildDietPlanPrompt(profile, classification, durationLabel, duration) {
-        // Defensive values for missing properties
         const bmi = classification?.bmi || 'bilinmiyor';
+        const level = classification?.level || 'bilinmiyor';
         const waterPerDay = profile.water_liters_per_day || 2;
-        const waterCalc = waterPerDay * (duration === 'daily' ? 1 : duration === 'weekly' ? 7 : 30);
+
+        const durationInstruction = duration === 'daily'
+            ? 'Sadece 1 gün için plan üret. 2. gün veya sonraki günleri yazma.'
+            : duration === 'weekly'
+                ? 'Sadece 1 hafta (7 gün) için plan üret. 2. haftayı yazma.'
+                : 'Sadece 1 ay için plan üret. Tam 30 günü gün gün yaz. 2. ayı yazma.';
+
+        const durationFormatRule = duration === 'daily'
+            ? 'Zorunlu başlık: "Gün 1". Sadece o günün öğünlerini ver.'
+            : duration === 'weekly'
+                ? 'Zorunlu başlıklar: "Gün 1" ile "Gün 7" arası eksiksiz.'
+                : 'Zorunlu başlıklar: "Gün 1" ile "Gün 30" arası eksiksiz, her gün için ayrı öğün planı.';
 
         return `
 Sen bir profesyonel diyetisyen ve beslenme uzmanısın.
-Detaylı, uygulanabilir ve kişiye özel bir beslenme planı oluştur.
+Kullanıcının verilerine göre, sadece istenen süre için kişiye özel beslenme planı üret.
 
 KULLANICI BİLGİLERİ:
 - Yaş: ${profile.age}
@@ -418,57 +420,107 @@ KULLANICI BİLGİLERİ:
 - Alerji / Kısıtlama: ${profile.allergy_or_restriction}
 - Aktivite seviyesi: ${profile.activity_level}/5
 - Haftalık egzersiz: ${profile.exercise_days_per_week} gün
-- Sağlık seviyesi: ${classification?.level || 'bilinmiyor'}
+- Uyku: ${profile.sleep_hours} saat
+- Sağlık seviyesi: ${level}
+- Sağlık notu: ${profile.health_note}
 
 PLAN TİPİ: ${durationLabel.toUpperCase()} DİYET PLANI
 
 KURALLAR:
-- Plan ${durationLabel} olsun
-- Beslenme tercihine ve alerjilere tamamen uyar
-- Kalori intake'i hedeflerine uygun hesapla (BMI ve aktiviteye göre)
-- Makro besinleri dengele (protein, karb, yağ)
-- Pratik ve hazırlaması kolay yemekler rekomandasyon yap
-- Türkçe tüm içeriği yaz
-- Her öğün için spesifik gıdalar listele
-- Suya ve suya dikkat et (günde ${waterCalc} litre)
-
-ÖNEMLİ:
-- Beslenme planını detaylı ve uygulanabilir yap
-- Öğünleri saatlerle göster
-- Portun boyutlarını gram/ml cinsinden belirt
-- Sağlık notu göz önünde bulundur: ${profile.health_note}
+- ${durationInstruction}
+- ${durationFormatRule}
+- Planı sadece kullanıcı verilerine göre oluştur.
+- Beslenme tercihi, alerjiler ve sağlık notuna tam uyum sağla.
+- Kalori ve makro dağılımını (protein/karbonhidrat/yağ) hedefe uygun belirle.
+- Öğünleri gerçekçi, uygulanabilir ve pratik seç.
+- Günlük su hedefini belirt (yaklaşık ${waterPerDay} litre/gün).
+- Türkçe yaz.
+- İngilizce başlık kullanma (Lunch, Dinner vb. yasak).
+- Belirsiz ifade kullanma ("1 adet tavuk" gibi). Her öğünde spesifik yemek adı ve porsiyon yaz.
+- Kırmızı et önerme; kullanıcı tercihine uy.
 
 ÇIKTI FORMATI:
-- Başlıklı bölümler kullan
-- Her öğün için besin değerleri ve miktar belirt
-- Ara yemekleri unutma
-- Pratik ipuçları ve tavsiyeler ekle
-- Uzun ve detaylı olsun (toplamda 1500+ kelime)
+- Başlıklı bölümler kullan.
+- Süreye uygun gün/hafta düzeni ver.
+- Her öğün için miktar (gram/ml/adet) yaz.
+- Kısa alışveriş/meal-prep önerileri ekle.
+- Dikkat edilmesi gerekenler, uyku-toparlanma ve motivasyon ipuçları bölümü ekle.
+- Video/link/URL ekleme.
+- Tablo zorunlu değil; açık ve okunabilir günlük başlık formatı kullan.
 
-Lütfen ${durationLabel} detaylı beslenme planı oluştur.
+Yalnızca ${durationLabel} planı üret.
 `.trim();
     },
 
-    async generateDietPlan(prompt, model = DEFAULT_MODEL) {
-        const payload = {
-            model: model,
-            prompt: prompt,
-            stream: true,
-            options: {
-                num_predict: 4000,
-                temperature: 0.3
-            }
-        };
+    sanitizePlanByDuration(text, duration) {
+        const normalized = text.replace(/\r\n/g, '\n');
+        const withoutLinks = normalized
+            .split('\n')
+            .filter((line) => !/(youtube|youtu\.be|https?:\/\/|www\.|video|link|url)/i.test(line))
+            .join('\n');
 
-        try {
+        if (duration === 'daily') {
+            const day2Index = withoutLinks.search(/(^|\n)\s{0,3}(#{1,6}\s*)?((g[uü]n\s*2)|(day\s*2)|sal[ıi]|tuesday)\b/i);
+            return day2Index > -1 ? withoutLinks.slice(0, day2Index).trim() : withoutLinks.trim();
+        }
+
+        if (duration === 'weekly') {
+            const week2Index = withoutLinks.search(/(^|\n)\s{0,3}(#{1,6}\s*)?(hafta\s*2|week\s*2)\b/i);
+            return week2Index > -1 ? withoutLinks.slice(0, week2Index).trim() : withoutLinks.trim();
+        }
+
+        if (duration === 'monthly') {
+            const month2Index = withoutLinks.search(/(^|\n)\s{0,3}(#{1,6}\s*)?(ay\s*2|month\s*2)\b/i);
+            return month2Index > -1 ? withoutLinks.slice(0, month2Index).trim() : withoutLinks.trim();
+        }
+
+        return withoutLinks.trim();
+    },
+
+    hasCompleteMonthlyDietDays(text) {
+        const foundDays = new Set();
+        const dayRegex = /(?:^|\n)\s{0,3}(?:#{1,6}\s*)?(?:g[uü]n|day)\s*(\d{1,2})\b/gi;
+        let match = dayRegex.exec(text);
+
+        while (match) {
+            const day = parseInt(match[1], 10);
+            if (!Number.isNaN(day) && day >= 1 && day <= 30) {
+                foundDays.add(day);
+            }
+            match = dayRegex.exec(text);
+        }
+
+        for (let i = 1; i <= 30; i += 1) {
+            if (!foundDays.has(i)) {
+                return false;
+            }
+        }
+
+        return true;
+    },
+
+    async generateDietPlan(prompt, model = DEFAULT_MODEL, duration = 'weekly') {
+        const numPredict = duration === 'monthly' ? 7000 : 4000;
+
+        const streamPlan = async (promptText) => {
+            const payload = {
+                model: model,
+                prompt: promptText,
+                stream: true,
+                options: {
+                    num_predict: numPredict,
+                    temperature: 0.3
+                }
+            };
+
             const response = await axios.post(OLLAMA_URL, payload, {
-                timeout: 120000, // 2 minutes for Ollama to respond
+                timeout: 180000,
                 responseType: 'stream'
             });
 
             return new Promise((resolve, reject) => {
                 let fullText = '';
-                
+
                 response.data.on('data', (chunk) => {
                     try {
                         const lines = chunk.toString().split('\n').filter(line => line.trim());
@@ -487,14 +539,7 @@ Lütfen ${durationLabel} detaylı beslenme planı oluştur.
                     if (!fullText.trim()) {
                         reject(new Error('Ollama boş yanıt döndü'));
                     } else {
-                        resolve({
-                            raw_text: fullText.trim(),
-                            metadata: {
-                                model: model,
-                                done: true,
-                                source: 'ollama'
-                            }
-                        });
+                        resolve(fullText);
                     }
                 });
 
@@ -502,6 +547,33 @@ Lütfen ${durationLabel} detaylı beslenme planı oluştur.
                     reject(error);
                 });
             });
+        };
+
+        try {
+            const firstRaw = await streamPlan(prompt);
+            let sanitized = this.sanitizePlanByDuration(firstRaw, duration);
+            let attempt = 1;
+
+            if (duration === 'monthly' && !this.hasCompleteMonthlyDietDays(sanitized)) {
+                const retryPrompt = `${prompt}\n\nKRİTİK DÜZELTME:\n- Cevap eksik. Tam 30 gün (Gün 1..Gün 30) ver.\n- Her gün için kahvaltı, öğle, ara öğün, akşam öğünü ayrı yaz.\n- Örnek/şablon değil, gerçek günlük plan yaz.`;
+                const retryRaw = await streamPlan(retryPrompt);
+                sanitized = this.sanitizePlanByDuration(retryRaw, duration);
+                attempt = 2;
+
+                if (!this.hasCompleteMonthlyDietDays(sanitized)) {
+                    throw new Error('Aylık diyet planı 30 günü eksiksiz üretemedi');
+                }
+            }
+
+            return {
+                raw_text: sanitized,
+                metadata: {
+                    model: model,
+                    done: true,
+                    source: 'ollama',
+                    attempt
+                }
+            };
         } catch (error) {
             console.error('Ollama diet plan error:', error.message);
             throw error; // Let the caller handle the error
@@ -753,30 +825,24 @@ Lütfen ${durationLabel} detaylı beslenme planı oluştur.
             return res.status(result.statusCode || 200).json(result.data);
         } catch (error) {
             console.error('Exercise plan error:', error.message);
-            const level = req.body.classification?.level || 'Beginner';
-            const defaultPlan = this.getDefaultExercisePlan(level);
-            res.json({
-                exercise_plan: {
-                    raw_text: defaultPlan,
-                    metadata: {
-                        model: 'default',
-                        done: true,
-                        source: 'fallback',
-                        error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
-                    }
-                }
+            return res.status(503).json({
+                error: 'AI egzersiz planı şu anda üretilemedi. Lütfen kısa süre sonra tekrar deneyin.'
             });
         }
     },
 
-    buildExercisePlanPrompt(profile, classification, durationLabel) {
-        // Defensive values for missing properties
+    buildExercisePlanPrompt(profile, classification, durationLabel, duration) {
         const bmi = classification?.bmi || 'bilinmiyor';
         const level = classification?.level || 'Intermediate';
+        const durationInstruction = duration === 'daily'
+            ? 'Sadece 1 günlük plan üret. 2. günü yazma.'
+            : duration === 'weekly'
+                ? 'Sadece 1 haftalık (7 gün) plan üret. 2. haftayı yazma.'
+                : 'Sadece 1 aylık plan üret. Haftalara bölerek yazabilirsin ama 2. ayı yazma.';
 
         return `
 Sen bir profesyonel fitness antrenörü ve egzersiz uzmanısın.
-Detaylı, güvenli, uygulanabilir ve kişiye özel bir egzersiz planı oluştur.
+Detaylı, güvenli, uygulanabilir ve kişiye özel egzersiz planı oluştur.
 
 KULLANICI BİLGİLERİ:
 - Yaş: ${profile.age}
@@ -791,19 +857,20 @@ KULLANICI BİLGİLERİ:
 - Ek sağlık notu: ${profile.health_note}
 - Fitness seviyesi: ${level}
 
-PLAN TİPİ: ${durationLabel.toUpperCase()} EGZERSIZ PLANI
+PLAN TİPİ: ${durationLabel.toUpperCase()} EGZERSİZ PLANI
 
 KURALLAR:
-- Plan ${durationLabel} olsun
+- ${durationInstruction}
 - Egzersizlerin zorluk seviyesi ${level} olsun
 - Sağlık durumuna dikkat et: ${profile.health_note}
 - Türkçe tüm içeriği yaz
+- Süreye uygun gün/hafta bazlı başlıklandırma kullan
 - Her egzersiz için:
   * Adı ve açıklama
   * Set ve tekrar sayısı
   * Dinlenme süresi
   * Hedeflenen kaslar
-  * Başlayanlar için ipuçları
+    * Bu kullanıcı seviyesine uygun varyasyon (başlangıç/orta/ileri)
 - Isınma ve soğuma hareketleri ekle
 - Egzersiz aralıkları ve dinlenme günlerini göster
 
@@ -812,19 +879,32 @@ KURALLAR:
 - Progresif aşırı yüklenme ilkesini uygula
 - Uyku ve toparlanmaya önem ver
 - Motivasyon ve ipuçları ekle
+- Kullanıcının sağlık notuna göre kaçınılması gereken hareketleri belirt
+- Haftalık yük artışı önerisini güvenli aralıkla ver (her antrenmanda değil)
 
 ÇIKTI FORMATI:
 - Başlıklı bölümler kullan
-- Her gün için detaylı program göster
-- Videolar için linkler varsa ekle
+- Süreye uygun detaylı program göster
+- Video, link, URL veya YouTube bölümü EKLEME
 - Dikkat edilmesi gerekenler bölümü ekle
-- Uzun ve detaylı olsun (toplamda 1500+ kelime)
+- Uyku ve toparlanma bölümü ekle (hedef uyku süresi, dinlenme günü, esneme)
+- Motivasyon ve günlük uygulanabilir ipuçları ekle
 
-Lütfen ${durationLabel} detaylı egzersiz planı oluştur.
+YANIT ŞABLONU:
+1) ${durationLabel} Egzersiz Planı
+2) Dikkat Edilmesi Gerekenler
+3) Uyku ve Toparlanma
+4) Motivasyon ve İpuçları
+
+Yalnızca ${durationLabel} planı üret.
 `.trim();
     },
 
-    async generateExercisePlan(prompt, model = DEFAULT_MODEL, level = 'Beginner') {
+    sanitizeExercisePlanOutput(text, duration = 'weekly') {
+        return this.sanitizePlanByDuration(text, duration);
+    },
+
+    async generateExercisePlan(prompt, model = DEFAULT_MODEL, level = 'Beginner', duration = 'weekly') {
         const payload = {
             model: model,
             prompt: prompt,
@@ -863,7 +943,7 @@ Lütfen ${durationLabel} detaylı egzersiz planı oluştur.
                         reject(new Error('Ollama boş yanıt döndü'));
                     } else {
                         resolve({
-                            raw_text: fullText.trim(),
+                            raw_text: this.sanitizeExercisePlanOutput(fullText, duration),
                             metadata: {
                                 model: model,
                                 done: true,

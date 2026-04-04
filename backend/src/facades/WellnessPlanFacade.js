@@ -23,22 +23,12 @@ class WellnessPlanFacade {
         const prompt = this.buildDietPlanPrompt(profile, classification, durationLabel, duration);
 
         try {
-            const dietPlan = await this.generateDietPlan(prompt, this.defaultModel);
+            const dietPlan = await this.generateDietPlan(prompt, this.defaultModel, duration);
             return { data: { diet_plan: dietPlan }, statusCode: 200 };
         } catch (error) {
             return {
-                data: {
-                    diet_plan: {
-                        raw_text: this.getDefaultDietPlan(),
-                        metadata: {
-                            model: 'default',
-                            done: true,
-                            source: 'fallback',
-                            error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
-                        }
-                    }
-                },
-                statusCode: 200
+                error: 'AI beslenme planı şu anda üretilemedi. Lütfen Ollama bağlantısını kontrol edip tekrar deneyin.',
+                statusCode: 503
             };
         }
     }
@@ -49,25 +39,15 @@ class WellnessPlanFacade {
         }
 
         const durationLabel = duration === 'daily' ? 'günlük' : duration === 'weekly' ? 'haftalık' : 'aylık';
-        const prompt = this.buildExercisePlanPrompt(profile, classification, durationLabel);
+        const prompt = this.buildExercisePlanPrompt(profile, classification, durationLabel, duration);
 
         try {
-            const exercisePlan = await this.generateExercisePlan(prompt, this.defaultModel, classification?.level || 'Beginner');
+            const exercisePlan = await this.generateExercisePlan(prompt, this.defaultModel, classification?.level || 'Beginner', duration);
             return { data: { exercise_plan: exercisePlan }, statusCode: 200 };
         } catch (error) {
             return {
-                data: {
-                    exercise_plan: {
-                        raw_text: this.getDefaultExercisePlan(classification?.level || 'Beginner'),
-                        metadata: {
-                            model: 'default',
-                            done: true,
-                            source: 'fallback',
-                            error: 'Ollama bağlantısı kurulamadı. Varsayılan plan gösterilmektedir.'
-                        }
-                    }
-                },
-                statusCode: 200
+                error: 'AI egzersiz planı şu anda üretilemedi. Lütfen Ollama bağlantısını kontrol edip tekrar deneyin.',
+                statusCode: 503
             };
         }
     }
