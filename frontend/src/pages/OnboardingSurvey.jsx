@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import PlanTable from '../components/PlanTable';
 import '../styles/OnboardingSurvey.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -9,6 +10,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 function OnboardingSurvey() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingLabel, setLoadingLabel] = useState('İşleniyor...');
   const [error, setError] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [classification, setClassification] = useState(null);
@@ -21,6 +24,32 @@ function OnboardingSurvey() {
   const [exercisePlanDuration, setExercisePlanDuration] = useState('weekly');
   const [exercisePlan, setExercisePlan] = useState(null);
   const [exercisePlanLoading, setExercisePlanLoading] = useState(false);
+
+  const isAnyLoading = loading || dietPlanLoading || exercisePlanLoading;
+
+  useEffect(() => {
+    if (!isAnyLoading) {
+      setLoadingProgress(0);
+      return;
+    }
+
+    setLoadingProgress(5);
+    const timer = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 92) return prev;
+        if (prev < 40) return prev + 4;
+        if (prev < 70) return prev + 2;
+        return prev + 1;
+      });
+    }, 350);
+
+    return () => clearInterval(timer);
+  }, [isAnyLoading]);
+
+  const finalizeLoadingProgress = async () => {
+    setLoadingProgress(100);
+    await new Promise((resolve) => setTimeout(resolve, 220));
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -111,6 +140,7 @@ function OnboardingSurvey() {
     
     if (!validateForm()) return;
 
+    setLoadingLabel('Sağlık analizi hazırlanıyor...');
     setLoading(true);
     setError('');
 
@@ -141,14 +171,17 @@ function OnboardingSurvey() {
       setClassification(response.data.classification);
       setRecommendation(response.data.recommendation);
       setShowResults(true);
+      await finalizeLoadingProgress();
     } catch (err) {
       setError(err.response?.data?.error || 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      await finalizeLoadingProgress();
     } finally {
       setLoading(false);
     }
   };
 
   const generateDietPlan = async () => {
+    setLoadingLabel(`${planDurationLabel(dietPlanDuration)} diyet planı oluşturuluyor...`);
     setDietPlanLoading(true);
     setError('');
 
@@ -168,14 +201,17 @@ function OnboardingSurvey() {
 
       setDietPlan(response.data.diet_plan);
       setShowDietPlanModal(false);
+      await finalizeLoadingProgress();
     } catch (err) {
       setError(err.response?.data?.error || 'Diyet planı oluşturulurken bir hata oluştu.');
+      await finalizeLoadingProgress();
     } finally {
       setDietPlanLoading(false);
     }
   };
 
   const generateExercisePlan = async () => {
+    setLoadingLabel(`${planDurationLabel(exercisePlanDuration)} egzersiz planı oluşturuluyor...`);
     setExercisePlanLoading(true);
     setError('');
 
@@ -195,11 +231,44 @@ function OnboardingSurvey() {
 
       setExercisePlan(response.data.exercise_plan);
       setShowExercisePlanModal(false);
+      await finalizeLoadingProgress();
     } catch (err) {
       setError(err.response?.data?.error || 'Egzersiz planı oluşturulurken bir hata oluştu.');
+      await finalizeLoadingProgress();
     } finally {
       setExercisePlanLoading(false);
     }
+  };
+
+  const renderLoadingOverlay = () => {
+    if (!isAnyLoading) return null;
+
+    const radius = 56;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (loadingProgress / 100) * circumference;
+
+    return (
+      <div className="global-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+        <div className="progress-card">
+          <div className="progress-ring-wrap">
+            <svg className="progress-ring" width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+              <circle className="progress-ring-bg" cx="70" cy="70" r={radius} />
+              <circle
+                className="progress-ring-bar"
+                cx="70"
+                cy="70"
+                r={radius}
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+              />
+            </svg>
+            <div className="progress-value">%{Math.round(loadingProgress)}</div>
+          </div>
+          <p className="progress-label">{loadingLabel}</p>
+          <p className="progress-subtitle">Plan hazırlanıyor, lütfen bekleyin.</p>
+        </div>
+      </div>
+    );
   };
 
   const renderFormattedText = (text) => {
@@ -392,48 +461,31 @@ function OnboardingSurvey() {
     return { days, sections: usedSections, data };
   };
 
-  const exportPlanAsExcel = (rawText, duration, planType) => {
-    const { days, sections, data } = parsePlanMatrix(rawText, planType);
-
-    if (!days.length || !sections.length) {
-      setError('Plan tablosu oluşturulamadı, lütfen tekrar deneyin.');
+  const exportPlanAsExcel = (planData, duration, planType) => {
+    if (!planData || !planData.periods || !planData.rows) {
+      setError('Plan Excel olarak oluşturulamadı, lütfen tekrar deneyin.');
       return;
     }
 
-    // Build aoa (array of arrays): first row = ['Öğün', ...days], then one row per section
-    const header = ['Öğün', ...days];
-    const bodyRows = sections.map((section) => [
-      section,
-      ...days.map((day) => (data[section][day] || '').replace(/\n/g, ' | '))
-    ]);
-    const aoa = [header, ...bodyRows];
+    const { periods, rows } = planData;
+    const header = [planType === 'diet' ? 'Öğün / Gün' : 'Egzersiz / Gün', ...periods];
+    const data = [header];
 
-    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-
-    // Column widths: first col narrow, day cols wider
-    worksheet['!cols'] = [
-      { wch: 14 },
-      ...days.map(() => ({ wch: 38 }))
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    const sheetName = planType === 'diet' ? 'Diyet Planı' : 'Egzersiz Planı';
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'
+    rows.forEach((row) => {
+      data.push([row.title, ...row.items]);
     });
 
-    const planLabel = planType === 'diet' ? 'diyet' : 'egzersiz';
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `lifesync_${planLabel}_${duration}_plan.xlsx`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Set column widths
+    ws['!cols'] = [{ wch: 16 }, ...periods.map(() => ({ wch: 30 }))];
+
+    const wb = XLSX.utils.book_new();
+    const planLabel = planType === 'diet' ? 'Diyet' : 'Egzersiz';
+    XLSX.utils.book_append_sheet(wb, ws, `${planLabel} Planı`);
+
+    const fileName = `lifesync_${planType === 'diet' ? 'diyet' : 'egzersiz'}_${duration}_plan.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
 
   const renderPlanTable = (rawText, planType) => {
@@ -489,6 +541,8 @@ function OnboardingSurvey() {
   // Diet Plan View
   if (showResults && dietPlan) {
     return withPageShell(
+        <>
+        {renderLoadingOverlay()}
         <div className="survey-container results-view">
           <div className="results-card">
           <div className="plan-header-row">
@@ -496,19 +550,15 @@ function OnboardingSurvey() {
             <button
               type="button"
               className="excel-export-btn"
-              onClick={() => exportPlanAsExcel(dietPlan.raw_text, dietPlanDuration, 'diet')}
+              onClick={() => exportPlanAsExcel(dietPlan, dietPlanDuration, 'diet')}
               title="Excel Olarak Dışa Aktar"
             >
-              <span className="excel-icon" aria-hidden="true">📗</span>
+              <span className="excel-icon" aria-hidden="true">📊</span>
               <span>Excel'e Aktar</span>
             </button>
           </div>
 
-          {renderPlanTable(dietPlan.raw_text, 'diet')}
-          
-          <div className="diet-plan-content">
-            {renderFormattedText(dietPlan.raw_text)}
-          </div>
+          <PlanTable planData={dietPlan} />
 
           <div className="results-actions">
             <button 
@@ -529,12 +579,15 @@ function OnboardingSurvey() {
           </div>
         </div>
       </div>
+        </>
     );
   }
 
   // Exercise Plan View
   if (showResults && exercisePlan) {
     return withPageShell(
+      <>
+      {renderLoadingOverlay()}
       <div className="survey-container results-view">
         <div className="results-card">
           <div className="plan-header-row">
@@ -542,19 +595,15 @@ function OnboardingSurvey() {
             <button
               type="button"
               className="excel-export-btn"
-              onClick={() => exportPlanAsExcel(exercisePlan.raw_text, exercisePlanDuration, 'exercise')}
+              onClick={() => exportPlanAsExcel(exercisePlan, exercisePlanDuration, 'exercise')}
               title="Excel Olarak Dışa Aktar"
             >
-              <span className="excel-icon" aria-hidden="true">📗</span>
+              <span className="excel-icon" aria-hidden="true">📊</span>
               <span>Excel'e Aktar</span>
             </button>
           </div>
 
-          {renderPlanTable(exercisePlan.raw_text, 'exercise')}
-          
-          <div className="diet-plan-content">
-            {renderFormattedText(exercisePlan.raw_text)}
-          </div>
+          <PlanTable planData={exercisePlan} />
 
           <div className="results-actions">
             <button
@@ -575,12 +624,15 @@ function OnboardingSurvey() {
           </div>
         </div>
       </div>
+      </>
       );
     }
 
   // Survey Results View
   if (showResults) {
     return withPageShell(
+      <>
+      {renderLoadingOverlay()}
       <div className="survey-container results-view">
         <div className="results-card">
           <h2>Sağlık Değerlendirmesi Sonuçları</h2>
@@ -773,10 +825,13 @@ function OnboardingSurvey() {
           </div>
         )}
       </div>
+      </>
     );
   }
 
   return withPageShell(
+    <>
+    {renderLoadingOverlay()}
     <div className="survey-container">
       <div className="survey-card">
         <h1>LifeSync Sağlık Anketi</h1>
@@ -1028,6 +1083,7 @@ function OnboardingSurvey() {
         </form>
       </div>
     </div>
+    </>
   );
 }
 

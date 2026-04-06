@@ -8,12 +8,7 @@ const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
 const createWellnessPlanFacade = (controller) => new WellnessPlanFacade({
     defaultModel: DEFAULT_MODEL,
     generateRecommendation: controller.generateRecommendation.bind(controller),
-    buildDietPlanPrompt: controller.buildDietPlanPrompt.bind(controller),
-    generateDietPlan: controller.generateDietPlan.bind(controller),
-    getDefaultDietPlan: controller.getDefaultDietPlan.bind(controller),
-    buildExercisePlanPrompt: controller.buildExercisePlanPrompt.bind(controller),
-    generateExercisePlan: controller.generateExercisePlan.bind(controller),
-    getDefaultExercisePlan: controller.getDefaultExercisePlan.bind(controller)
+    callOllama: controller.callOllama.bind(controller)
 });
 
 const dashboardController = {
@@ -146,9 +141,12 @@ const dashboardController = {
                 timeout: 300000 // 5 mins
             });
 
+            const rawText = response.data.response?.trim() || 'Model boş yanıt döndürdü.';
+            const sanitizedText = this.sanitizeRecommendationText(rawText, profile, classification.level);
+
             return {
                 level: classification.level,
-                raw_text: response.data.response?.trim() || 'Model boş yanıt döndürdü.',
+                raw_text: sanitizedText,
                 metadata: {
                     model: response.data.model || model,
                     done: response.data.done || false
@@ -158,7 +156,7 @@ const dashboardController = {
             console.error('Ollama error:', error.message);
             return {
                 level: classification.level,
-                raw_text: this.getDefaultRecommendation(classification.level, profile),
+                raw_text: 'AI önerisi şu anda üretilemedi. Lütfen daha sonra tekrar deneyin.',
                 metadata: {
                     model: model,
                     error: 'Ollama bağlantısı kurulamadı. Varsayılan öneriler gösterilmektedir.'
@@ -179,6 +177,12 @@ Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
 - Cevabı Türkçe ver.
 - Formatı düzenli olsun.
 - Çok uzun yazma.
+- Kullanıcı bilgilerini metin içinde tekrar etme (yaş, kilo, boy, cinsiyet, BMI vb. yazma).
+- Prompt/kurallar/meta ifadeleri asla yazma.
+- İngilizce kelime kullanma (ör. lunch, dinner, starting point, dairy).
+- Kullanıcının tüketmediğini belirttiği gıdaları asla önerme.
+- "kırmızı parça et tüketmiyorum" gibi bir kısıt varsa dana/kuzu/sığır/biftek/antrikot/bonfile/pirzola yazma.
+- Bu kısıtta sadece izinli alternatifler öner: tavuk, hindi, balık, yumurta, kurubaklagil, tofu.
 
 KULLANICI BİLGİLERİ:
 - Yaş: ${profile.age}
@@ -210,8 +214,64 @@ Her bölüm kısa, uygulanabilir ve maddeli olsun.
 ÇIKTI FORMATI:
 - Her başlık altında sadece Türkçe maddeler yaz.
 - Her madde açık ve anlaşılır olsun.
+- Her başlık altında en fazla 4 madde yaz.
 - Bozuk veya karışık dil kullanırsan cevap geçersiz sayılır.
 `.trim();
+    },
+
+    normalizeRecommendationLanguage(text) {
+        const replacements = [
+            { pattern: /starting\s*point/gi, value: 'başlangıç noktası' },
+            { pattern: /dairy\s*products?/gi, value: 'süt ürünleri' },
+            { pattern: /lunch/gi, value: 'öğle öğünü' },
+            { pattern: /dinner/gi, value: 'akşam öğünü' },
+            { pattern: /proposal(lar[ıi]?)?/gi, value: 'öneriler' },
+            { pattern: /\bonly\b/gi, value: 'yalnızca' },
+            { pattern: /\bdaily\b/gi, value: 'günlük' },
+            { pattern: /\bpriorit(?:y|ies|ize|ized)\b/gi, value: 'öncelik' },
+            { pattern: /\bcalorie\b/gi, value: 'kalori' },
+            { pattern: /\bkalorie\b/gi, value: 'kalori' },
+            { pattern: /\bdeep\s*breathing\b/gi, value: 'derin nefes egzersizi' }
+        ];
+
+        let output = text || '';
+        for (const replacement of replacements) {
+            output = output.replace(replacement.pattern, replacement.value);
+        }
+
+        return output;
+    },
+
+    sanitizeRecommendationText(text, profile = {}, level = 'Beginner') {
+        if (!text || typeof text !== 'string') {
+            return 'AI önerisi şu anda üretilemedi. Lütfen daha sonra tekrar deneyin.';
+        }
+
+        const metaLineRegex = /^(kullan[ıi]c[ıi]\s*bilgileri|[öo]nemli\s*kurallar|[çc][ıi]kt[ıi]\s*format[ıi]|input|prompt|l[uü]tfen\s*şu\s*başl[ıi]klarda|bozuk\s*veya\s*kar[ıi]ş[ıi]k\s*dil)/i;
+        const privateLineRegex = /^(yaş|cinsiyet|boy|kilo|bmi|hedef|beslenme\s*tercihi|alerji|aktivite\s*seviyesi|haftal[ıi]k\s*egzersiz|uyku|g[uü]nl[uü]k\s*su|g[uü]nl[uü]k\s*ekran\s*s[üu]resi|ek\s*sağl[ıi]k\s*notu)\s*:/i;
+
+        const profileNarrativeRegex = /(kullan[ıi]c[ıi].*(yaş|kg|cm|bmi|cinsiyet|boy|kilo|hedef)|\b\d{1,3}\s*yaş|\b\d{2,3}\s*cm|\b\d{2,3}\s*kg|\bbmi\b)/i;
+
+        let output = text.replace(/\r\n/g, '\n');
+        output = this.normalizeRecommendationLanguage(output);
+
+        output = output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line)
+            .filter((line) => !metaLineRegex.test(line.toLowerCase()))
+            .filter((line) => !privateLineRegex.test(line.toLowerCase()))
+            .filter((line) => !profileNarrativeRegex.test(line.toLowerCase()))
+            .join('\n');
+
+        output = this.applyDietRestrictionsToPlan(output, profile);
+        output = this.normalizeRecommendationLanguage(output);
+
+        if (!output || output.trim().length === 0) {
+            return 'AI önerisi şu anda üretilemedi. Lütfen daha sonra tekrar deneyin.';
+        }
+
+        return output;
     },
 
     getDefaultRecommendation(level, profile) {
@@ -368,6 +428,44 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
         }
     },
 
+    /**
+     * Generic Ollama streaming call — returns raw text.
+     */
+    async callOllama(prompt, model = DEFAULT_MODEL, numPredict = 4000) {
+        const payload = {
+            model,
+            prompt,
+            stream: true,
+            options: { num_predict: numPredict, temperature: 0.7 }
+        };
+
+        const response = await axios.post(OLLAMA_URL, payload, {
+            timeout: 300000,
+            responseType: 'stream'
+        });
+
+        return new Promise((resolve, reject) => {
+            let fullText = '';
+
+            response.data.on('data', (chunk) => {
+                try {
+                    const lines = chunk.toString().split('\n').filter(line => line.trim());
+                    for (const line of lines) {
+                        const json = JSON.parse(line);
+                        if (json.response) fullText += json.response;
+                    }
+                } catch (_) { /* skip parse errors */ }
+            });
+
+            response.data.on('end', () => {
+                if (!fullText.trim()) reject(new Error('Ollama boş yanıt döndü'));
+                else resolve(fullText);
+            });
+
+            response.data.on('error', reject);
+        });
+    },
+
     async dietPlan(req, res) {
         try {
             const { profile, classification, duration } = req.body;
@@ -392,6 +490,9 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
         const bmi = classification?.bmi || 'bilinmiyor';
         const level = classification?.level || 'bilinmiyor';
         const waterPerDay = profile.water_liters_per_day || 2;
+        const preferenceText = `${profile.diet_preference || ''} ${profile.allergy_or_restriction || ''}`.toLowerCase();
+        const noRedMeat = /(k[ıi]rm[ıi]z[ıi].*(et|par[çc]a)|dana|kuzu|s[ıi][ğg]?[ıi]r)/i.test(preferenceText)
+            && /(t[üu]ketmiyorum|yemiyorum|istemiyorum|olmas[ıi]n|yasak|k[ıi]s[ıi]t|sevmiyorum)/i.test(preferenceText);
 
         const durationInstruction = duration === 'daily'
             ? 'Sadece 1 gün için plan üret. 2. gün veya sonraki günleri yazma.'
@@ -438,18 +539,60 @@ KURALLAR:
 - İngilizce başlık kullanma (Lunch, Dinner vb. yasak).
 - Belirsiz ifade kullanma ("1 adet tavuk" gibi). Her öğünde spesifik yemek adı ve porsiyon yaz.
 - Kırmızı et önerme; kullanıcı tercihine uy.
+- KULLANICI KISITI CIGNENEMEZ: kullanici bir gidayi tuketmedigini soyluyorsa o gida asla plana girmez.
+- YASAKLI GIDA GORULURSE ALTERNATIF URET: ayni ogunu izinli proteinle degistir (tavuk, hindi, balik, yumurta, kurubaklagil, tofu).
+- "alternatif olarak ..." gibi belirsiz not yazma; dogrudan kural uyumlu ogunu yaz.
+- Asla tablo/markdown tablo kullanma (| karakteri ile satır yazma).
+- Asla "Kullanıcı Bilgileri", "Öneriler", "Dikkat edilmesi gerekenler", "Plan Özeti" gibi plan dışı bölüm ekleme.
+- Çıktıda kişisel veri satırı (yaş, kilo, boy, cinsiyet, BMI, hedef vb.) yazma.
+- Sadece gün başlıkları ve öğün satırları yaz.
+- Haftalık planda her günün ana öğün kombinasyonu farklı olmalı; birebir aynı gün menüsü tekrar etmeyecek.
+- Aylık planda ardışık günler birebir kopya olmayacak; dengeli ve döngüsel çeşitlilik uygula.
+${noRedMeat ? '- KRITIK KISIT: Kirmizi parca et YASAK. Dana, kuzu, sigir, biftek, antrikot, bonfile, pirzola yazma. Bu ogunlerde tavuk/hindi/balik/kurubaklagil kullan.' : ''}
 
 ÇIKTI FORMATI:
 - Başlıklı bölümler kullan.
 - Süreye uygun gün/hafta düzeni ver.
 - Her öğün için miktar (gram/ml/adet) yaz.
-- Kısa alışveriş/meal-prep önerileri ekle.
-- Dikkat edilmesi gerekenler, uyku-toparlanma ve motivasyon ipuçları bölümü ekle.
 - Video/link/URL ekleme.
-- Tablo zorunlu değil; açık ve okunabilir günlük başlık formatı kullan.
+- Tablo kullanma; açık ve okunabilir günlük başlık formatı kullan.
 
 Yalnızca ${durationLabel} planı üret.
 `.trim();
+    },
+
+    getDietRestrictions(profile = {}) {
+        const combined = `${profile.diet_preference || ''} ${profile.allergy_or_restriction || ''}`.toLowerCase();
+        const noRedMeat = /(k[ıi]rm[ıi]z[ıi].*(et|par[çc]a)|dana|kuzu|s[ıi][ğg]?[ıi]r)/i.test(combined)
+            && /(t[üu]ketmiyorum|yemiyorum|istemiyorum|olmas[ıi]n|yasak|k[ıi]s[ıi]t|sevmiyorum)/i.test(combined);
+
+        return { noRedMeat };
+    },
+
+    applyDietRestrictionsToPlan(text, profile = {}) {
+        let output = text || '';
+        const { noRedMeat } = this.getDietRestrictions(profile);
+
+        if (noRedMeat) {
+            const replacements = [
+                { pattern: /\bk[ıi]rm[ıi]z[ıi]\s*et\b/gi, value: 'tavuk veya balık' },
+                { pattern: /\bdana\s*eti\b/gi, value: 'tavuk göğüs' },
+                { pattern: /\bdana\b/gi, value: 'tavuk' },
+                { pattern: /\bkuzu\s*eti\b/gi, value: 'hindi' },
+                { pattern: /\bkuzu\b/gi, value: 'hindi' },
+                { pattern: /\bs[ıi][ğg]?[ıi]r\s*eti\b/gi, value: 'balık' },
+                { pattern: /\bbiftek\b/gi, value: 'ızgara tavuk' },
+                { pattern: /\bantrikot\b/gi, value: 'fırında somon' },
+                { pattern: /\bbonfile\b/gi, value: 'hindi bonfile' },
+                { pattern: /\bpirzola\b/gi, value: 'fırın tavuk' }
+            ];
+
+            for (const replacement of replacements) {
+                output = output.replace(replacement.pattern, replacement.value);
+            }
+        }
+
+        return output;
     },
 
     sanitizePlanByDuration(text, duration) {
@@ -477,6 +620,87 @@ Yalnızca ${durationLabel} planı üret.
         return withoutLinks.trim();
     },
 
+    sanitizeDietPlanContent(text, duration = 'weekly') {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+
+        const normalized = text.replace(/\r\n/g, '\n');
+        const dropAfterSectionRegex = /(?:^|\n)\s{0,3}(?:#{1,6}\s*)?(?:dikkat\s*edilmesi\s*gerekenler|öneriler|oneriler|notlar|plan\s*özeti|plan\s*ozeti)\s*:?.*$/i;
+        const cutIndex = normalized.search(dropAfterSectionRegex);
+        const limited = cutIndex > -1 ? normalized.slice(0, cutIndex) : normalized;
+
+        const metaLineRegex = /^(kullan[ıi]c[ıi]\s*bilgileri|haftal[ıi]k\s*diyet\s*plan[ıi]|plan\s*tipi|kurallar|[çc][ıi]kt[ıi]\s*format[ıi]|input|output|summary|plan\s*ozeti)/i;
+        const privateLineRegex = /^(yaş|yas|cinsiyet|boy|kilo|bmi|hedef|beslenme\s*tercihi|alerji|aktivite\s*seviyesi|haftal[ıi]k\s*egzersiz|uyku|sağl[ıi]k\s*seviyesi|sağl[ıi]k\s*notu|g[uü]nl[uü]k\s*su)\s*:/i;
+        const allowedLineRegex = /^(?:#{1,6}\s*)?(?:g[uü]n\s*\d+|uyuduktan\s*sonra|kahvalt[ıi]|[öo]ğ[uü]n\s*\d+|ara\s*[öo]ğ[uü]n\s*\d*|[öo]ğle|akşam|gece|toplam|\+\s*.+)/i;
+
+        const cleanedLines = limited
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line)
+            .filter((line) => !line.includes('|'))
+            .filter((line) => !/^[-:|\s]+$/.test(line))
+            .filter((line) => !metaLineRegex.test(line.toLowerCase()))
+            .filter((line) => !privateLineRegex.test(line.toLowerCase()))
+            .filter((line) => allowedLineRegex.test(line));
+
+        const replacements = [
+            { pattern: /\bsalad\b/gi, value: 'salata' },
+            { pattern: /\bsandwich\b/gi, value: 'sandviç' },
+            { pattern: /\bmeal\b/gi, value: 'öğün' }
+        ];
+
+        let output = cleanedLines.join('\n');
+        for (const replacement of replacements) {
+            output = output.replace(replacement.pattern, replacement.value);
+        }
+
+        if (duration === 'daily') {
+            const day2Index = output.search(/(^|\n)\s{0,3}(?:#{1,6}\s*)?g[uü]n\s*2\b/i);
+            return (day2Index > -1 ? output.slice(0, day2Index) : output).trim();
+        }
+
+        return output.trim();
+    },
+
+    hasSufficientDailyVariety(text, duration = 'weekly') {
+        if (!text || typeof text !== 'string') {
+            return false;
+        }
+
+        if (duration !== 'weekly' && duration !== 'monthly') {
+            return true;
+        }
+
+        const dayBlocks = [];
+        const dayRegex = /(?:^|\n)\s{0,3}(?:#{1,6}\s*)?g[uü]n\s*(\d{1,2})\b/gi;
+        const matches = [...text.matchAll(dayRegex)];
+
+        for (let i = 0; i < matches.length; i += 1) {
+            const start = matches[i].index;
+            const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+            if (start !== undefined) {
+                const block = text.slice(start, end)
+                    .toLowerCase()
+                    .replace(/\s+/g, ' ')
+                    .replace(/g[uü]n\s*\d+/g, 'gün')
+                    .trim();
+                dayBlocks.push(block);
+            }
+        }
+
+        if (dayBlocks.length === 0) {
+            return false;
+        }
+
+        const uniqueCount = new Set(dayBlocks).size;
+        if (duration === 'weekly') {
+            return uniqueCount >= 4;
+        }
+
+        return uniqueCount >= 12;
+    },
+
     hasCompleteMonthlyDietDays(text) {
         const foundDays = new Set();
         const dayRegex = /(?:^|\n)\s{0,3}(?:#{1,6}\s*)?(?:g[uü]n|day)\s*(\d{1,2})\b/gi;
@@ -499,7 +723,7 @@ Yalnızca ${durationLabel} planı üret.
         return true;
     },
 
-    async generateDietPlan(prompt, model = DEFAULT_MODEL, duration = 'weekly') {
+    async generateDietPlan(prompt, model = DEFAULT_MODEL, duration = 'weekly', profile = {}) {
         const numPredict = duration === 'monthly' ? 7000 : 4000;
 
         const streamPlan = async (promptText) => {
@@ -552,13 +776,29 @@ Yalnızca ${durationLabel} planı üret.
         try {
             const firstRaw = await streamPlan(prompt);
             let sanitized = this.sanitizePlanByDuration(firstRaw, duration);
+            sanitized = this.sanitizeDietPlanContent(sanitized, duration);
+            sanitized = this.applyDietRestrictionsToPlan(sanitized, profile);
             let attempt = 1;
+
+            const requiresVarietyRetry = (duration === 'weekly' || duration === 'monthly')
+                && !this.hasSufficientDailyVariety(sanitized, duration);
+
+            if (requiresVarietyRetry) {
+                const retryPromptForVariety = `${prompt}\n\nKRİTİK DÜZELTME:\n- Çıktıda günler birbirine fazla benziyor.\n- Her günün öğünleri farklı olmalı, birebir kopya gün istemiyorum.\n- Kişisel bilgi, öneriler, dikkat notları, özet ve tablo ekleme.\n- Sadece Gün başlığı + öğün satırları ver.`;
+                const retryRawForVariety = await streamPlan(retryPromptForVariety);
+                sanitized = this.sanitizePlanByDuration(retryRawForVariety, duration);
+                sanitized = this.sanitizeDietPlanContent(sanitized, duration);
+                sanitized = this.applyDietRestrictionsToPlan(sanitized, profile);
+                attempt = 2;
+            }
 
             if (duration === 'monthly' && !this.hasCompleteMonthlyDietDays(sanitized)) {
                 const retryPrompt = `${prompt}\n\nKRİTİK DÜZELTME:\n- Cevap eksik. Tam 30 gün (Gün 1..Gün 30) ver.\n- Her gün için kahvaltı, öğle, ara öğün, akşam öğünü ayrı yaz.\n- Örnek/şablon değil, gerçek günlük plan yaz.`;
                 const retryRaw = await streamPlan(retryPrompt);
                 sanitized = this.sanitizePlanByDuration(retryRaw, duration);
-                attempt = 2;
+                sanitized = this.sanitizeDietPlanContent(sanitized, duration);
+                sanitized = this.applyDietRestrictionsToPlan(sanitized, profile);
+                attempt = Math.max(attempt, 2);
 
                 if (!this.hasCompleteMonthlyDietDays(sanitized)) {
                     throw new Error('Aylık diyet planı 30 günü eksiksiz üretemedi');

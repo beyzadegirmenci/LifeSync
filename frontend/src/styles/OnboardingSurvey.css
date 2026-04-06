@@ -375,6 +375,76 @@
   z-index: 1000;
 }
 
+.global-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1600;
+}
+
+.progress-card {
+  width: min(92vw, 340px);
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.28);
+  padding: 22px 20px 18px;
+  text-align: center;
+}
+
+.progress-ring-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 12px;
+}
+
+.progress-ring {
+  transform: rotate(-90deg);
+  display: block;
+}
+
+.progress-ring-bg {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 10;
+}
+
+.progress-ring-bar {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease;
+}
+
+.progress-value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #0f172a;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.progress-label {
+  margin: 0;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.progress-subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .modal-content {
   background: white;
   border-radius: 12px;
@@ -673,5 +743,24 @@
 
   .excel-export-btn {
     justify-content: center;
+  }
+
+  .progress-card {
+    border-radius: 14px;
+    padding: 18px 14px 14px;
+  }
+
+  .progress-ring-wrap {
+    width: 126px;
+    height: 126px;
+  }
+
+  .progress-ring {
+    width: 126px;
+    height: 126px;
+  }
+
+  .progress-value {
+    font-size: 23px;
   }
 }
