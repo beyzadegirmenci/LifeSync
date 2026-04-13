@@ -1,11 +1,5 @@
 import '../styles/PlanTable.css';
 
-/**
- * Reusable Excel-like table for structured plan data.
- * Expects props:
- *   - planData: { periodType, periods, rows: [{ title, items }] }
- *   - planLabel: string (e.g. "Diyet Planı")
- */
 export default function PlanTable({ planData, planLabel }) {
   if (!planData || !planData.periods || !planData.rows) {
     return <p className="plan-table-empty">Plan verisi bulunamadı.</p>;

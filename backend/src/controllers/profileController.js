@@ -1,7 +1,7 @@
-// Controller seviyesinde Builder Pattern kullaniyoruz:
-// request'ten gelen profile alanlari ProfileBuilder ile adim adim build ediliyor.
 const User = require('../models/User');
 const ProfileBuilder = require('../builders/ProfileBuilder');
+const PlanEventEmitter = require('../observers/PlanEventEmitter');
+const UserNotificationObserver = require('../observers/UserNotificationObserver');
 
 const profileController = {
     
@@ -45,6 +45,16 @@ const profileController = {
 
             if (!updatedUser) {
                 return res.status(404).json({ error: 'User not found' });
+            }
+
+            try {
+                const eventEmitter = new PlanEventEmitter();
+                const observer = new UserNotificationObserver(req.userId);
+                eventEmitter.attach(observer);
+                await eventEmitter.emitProfileUpdated(req.userId);
+                eventEmitter.detach(observer);
+            } catch (notificationError) {
+                console.error('Profile notification error:', notificationError.message);
             }
 
             res.json({

@@ -1,0 +1,98 @@
+/* NotificationCenter.css - Ana Bildirim Merkezi */
+
+.notification-center {
+    position: relative;
+}
+
+/* Toast Container */
+.notification-toasts {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.notification-toasts > * {
+    pointer-events: all;
+}
+
+/* Notification Bell Button */
+.notification-bell {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.notification-bell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.notification-bell:active {
+    transform: scale(0.95);
+}
+
+/* Badge */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4444;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    border: 2px solid white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(255, 68, 68, 0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .notification-toasts {
+        top: 10px;
+        right: 10px;
+        gap: 8px;
+    }
+
+    .notification-bell {
+        bottom: 10px;
+        right: 10px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+
+    .notification-badge {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+}

@@ -1,0 +1,252 @@
+/* NotificationInbox.css - Bildirim Inbox Modal */
+
+.notification-inbox-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 1001;
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.notification-inbox {
+    background: white;
+    width: 100%;
+    max-width: 420px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+/* Header */
+.notification-inbox-header {
+    padding: 16px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notification-inbox-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+/* Filters */
+.notification-inbox-filters {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+}
+
+.filter-btn:hover {
+    background: #f5f5f5;
+}
+
+.filter-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.refresh-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all 0.2s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    background: #f5f5f5;
+}
+
+.refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Notification List */
+.notification-inbox-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 14px;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.notification-empty p {
+    margin: 0;
+}
+
+/* Notification Item */
+.notification-inbox-item {
+    padding: 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.notification-inbox-item:hover {
+    background: #f9f9f9;
+}
+
+.notification-inbox-item.unread {
+    background: #f5f7ff;
+}
+
+.notification-inbox-item.unread:hover {
+    background: #eef2ff;
+}
+
+/* Icon */
+.notification-inbox-icon {
+    font-size: 20px;
+    min-width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Content */
+.notification-inbox-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-inbox-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.notification-inbox-message {
+    color: #666;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    word-wrap: break-word;
+}
+
+.notification-inbox-time {
+    color: #999;
+    font-size: 11px;
+}
+
+/* Mark Read Button */
+.notification-mark-read {
+    min-width: 32px;
+    height: 32px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 50%;
+    color: #667eea;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-mark-read:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+/* Footer */
+.notification-inbox-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+    color: #999;
+}
+
+/* Scrollbar */
+.notification-inbox-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notification-inbox-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.notification-inbox-list::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 3px;
+}
+
+.notification-inbox-list::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .notification-inbox {
+        max-width: 100%;
+    }
+
+    .notification-inbox-item {
+        padding: 12px;
+    }
+
+    .notification-inbox-header {
+        padding: 12px;
+    }
+}

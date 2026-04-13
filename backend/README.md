@@ -53,6 +53,33 @@ CREATE TABLE users (
     last_name  VARCHAR(100) NOT NULL,
     password   VARCHAR(255) NOT NULL
 );
+
+-- Observer Pattern: Bildirim sistemi için tablo
+CREATE TABLE notifications (
+    notification_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    
+    -- Bildirim tipi: PlanCreated, ProfileUpdated, PlanUpdated, GoalMissed, vb.
+    type VARCHAR(50) NOT NULL,
+    
+    -- Bildirim başlığı ve mesajı
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    
+    -- İlgili kaynağa referans (plan ID, vb.)
+    reference_id UUID,
+    
+    -- Okundu/okunmadı durumu
+    is_read BOOLEAN DEFAULT FALSE,
+    
+    -- Zaman damgaları
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    read_at TIMESTAMPTZ
+);
+
+-- Performans için indexler
+CREATE INDEX idx_notifications_user_id ON notifications (user_id, created_at DESC);
+CREATE INDEX idx_notifications_unread ON notifications (user_id, is_read) WHERE is_read = FALSE;
 ```
 
 ## Backend Kurulumu

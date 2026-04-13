@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const axios = require('axios');
 const WellnessPlanFacade = require('../facades/WellnessPlanFacade');
+const PlanEventEmitter = require('../observers/PlanEventEmitter');
+const UserNotificationObserver = require('../observers/UserNotificationObserver');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
@@ -53,15 +55,11 @@ const dashboardController = {
         }
     },
 
-    /**
-     * Classifies user based on health metrics
-     */
     classifyUser(profile) {
         const bmi = parseFloat((profile.weight_kg / ((profile.height_cm / 100) ** 2)).toFixed(1));
         let score = 0;
         const reasons = [];
 
-        // Activity level
         if (profile.activity_level >= 4) {
             score += 2;
             reasons.push('Günlük aktivite seviyesi yüksek.');
@@ -72,7 +70,6 @@ const dashboardController = {
             reasons.push('Günlük aktivite seviyesi düşük.');
         }
 
-        // Exercise frequency
         if (profile.exercise_days_per_week >= 4) {
             score += 2;
             reasons.push('Haftalık egzersiz sıklığı yüksek.');
@@ -83,7 +80,6 @@ const dashboardController = {
             reasons.push('Haftalık egzersiz sıklığı düşük.');
         }
 
-        // BMI range
         if (bmi >= 18.5 && bmi <= 29.9) {
             score += 1;
             reasons.push('BMI aralığı planlama açısından yönetilebilir seviyede.');
@@ -91,7 +87,6 @@ const dashboardController = {
             reasons.push('BMI özel dikkat gerektirebilir.');
         }
 
-        // Sleep
         if (profile.sleep_hours >= 6 && profile.sleep_hours <= 9) {
             score += 1;
             reasons.push('Uyku süresi dengeli.');
@@ -99,7 +94,6 @@ const dashboardController = {
             reasons.push('Uyku düzeni iyileştirilebilir.');
         }
 
-        // Water intake
         if (profile.water_liters_per_day >= 2) {
             score += 1;
             reasons.push('Su tüketimi iyi düzeyde.');
@@ -107,7 +101,6 @@ const dashboardController = {
             reasons.push('Su tüketimi düşük.');
         }
 
-        // Determine level
         let level = 'Beginner';
         if (score <= 2) {
             level = 'Beginner';
@@ -120,9 +113,6 @@ const dashboardController = {
         return { level, score, reasons, bmi };
     },
 
-    /**
-     * Generates recommendation using Ollama
-     */
     async generateRecommendation(profile, classification, model = DEFAULT_MODEL) {
         const prompt = this.buildPrompt(profile, classification);
 
@@ -415,8 +405,15 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
             const wellnessPlanFacade = createWellnessPlanFacade(this);
             const recommendation = await wellnessPlanFacade.generateSurveyRecommendation(profile, classification);
 
-            // Save profile data to user (optional)
-            // await User.saveProfileSurvey(userId, profile, classification);
+            try {
+                const eventEmitter = new PlanEventEmitter();
+                const observer = new UserNotificationObserver(userId);
+                eventEmitter.attach(observer);
+                await eventEmitter.emitSurveyCompleted(userId);
+                eventEmitter.detach(observer);
+            } catch (notificationError) {
+                console.error('Survey notification error:', notificationError.message);
+            }
 
             res.json({
                 classification,
@@ -428,9 +425,6 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
         }
     },
 
-    /**
-     * Generic Ollama streaming call — returns raw text.
-     */
     async callOllama(prompt, model = DEFAULT_MODEL, numPredict = 4000) {
         const payload = {
             model,
@@ -469,9 +463,11 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
     async dietPlan(req, res) {
         try {
             const { profile, classification, duration } = req.body;
+            const userId = req.userId; // Auth middleware'den gelen kullanıcı ID
 
             const wellnessPlanFacade = createWellnessPlanFacade(this);
-            const result = await wellnessPlanFacade.generateDietPlanResult(profile, classification, duration);
+            // generateDietPlanResult metoduna userId pass et (observer için)
+            const result = await wellnessPlanFacade.generateDietPlanResult(profile, classification, duration, userId);
 
             if (result.error) {
                 return res.status(result.statusCode || 400).json({ error: result.error });
@@ -1054,9 +1050,11 @@ Yalnızca ${durationLabel} planı üret.
     async exercisePlan(req, res) {
         try {
             const { profile, classification, duration } = req.body;
+            const userId = req.userId; // Auth middleware'den gelen kullanıcı ID
 
             const wellnessPlanFacade = createWellnessPlanFacade(this);
-            const result = await wellnessPlanFacade.generateExercisePlanResult(profile, classification, duration);
+            // generateExercisePlanResult metoduna userId pass et (observer için)
+            const result = await wellnessPlanFacade.generateExercisePlanResult(profile, classification, duration, userId);
 
             if (result.error) {
                 return res.status(result.statusCode || 400).json({ error: result.error });
@@ -1424,6 +1422,88 @@ Salı ile aynı egzersizler, başlayan için alternatifler:
         if (level === 'Beginner') return beginnerPlan;
         if (level === 'Intermediate') return intermediatePlan;
         return advancedPlan;
+    },
+
+    async getNotifications(req, res) {
+        try {
+            const userId = req.userId;
+            const { limit = 20, offset = 0, read } = req.query;
+
+            const { pool } = require('../config/database');
+            let query = 'SELECT * FROM notifications WHERE user_id = $1';
+            const params = [userId];
+
+            if (read !== undefined) {
+                query += ` AND is_read = $${params.length + 1}`;
+                params.push(read === 'true');
+            }
+
+            query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+            params.push(parseInt(limit), parseInt(offset));
+
+            const result = await pool.query(query, params);
+
+            res.json({
+                notifications: result.rows,
+                count: result.rows.length,
+                limit,
+                offset
+            });
+        } catch (error) {
+            console.error('Get notifications error:', error.message);
+            res.status(500).json({ error: 'Bildirimler alınırken hata oluştu' });
+        }
+    },
+
+    async markNotificationAsRead(req, res) {
+        try {
+            const userId = req.userId;
+            const { id } = req.params;
+
+            const { pool } = require('../config/database');
+            const query = `
+                UPDATE notifications 
+                SET is_read = TRUE, read_at = NOW()
+                WHERE notification_id = $1 AND user_id = $2
+                RETURNING *;
+            `;
+
+            const result = await pool.query(query, [id, userId]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Bildirim bulunamadı' });
+            }
+
+            res.json({
+                message: 'Bildirim okundu olarak işaretlendi',
+                notification: result.rows[0]
+            });
+        } catch (error) {
+            console.error('Mark notification as read error:', error.message);
+            res.status(500).json({ error: 'Bildirim işaretlenirken hata oluştu' });
+        }
+    },
+
+    async getUnreadNotificationCount(req, res) {
+        try {
+            const userId = req.userId;
+
+            const { pool } = require('../config/database');
+            const query = `
+                SELECT COUNT(*) as unread_count 
+                FROM notifications 
+                WHERE user_id = $1 AND is_read = FALSE;
+            `;
+
+            const result = await pool.query(query, [userId]);
+
+            res.json({
+                unread_count: parseInt(result.rows[0].unread_count)
+            });
+        } catch (error) {
+            console.error('Get unread notification count error:', error.message);
+            res.status(500).json({ error: 'Bildirim sayısı alınırken hata oluştu' });
+        }
     }
 };
 

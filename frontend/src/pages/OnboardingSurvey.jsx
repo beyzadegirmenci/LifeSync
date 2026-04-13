@@ -538,7 +538,6 @@ function OnboardingSurvey() {
     </div>
   );
 
-  // Diet Plan View
   if (showResults && dietPlan) {
     return withPageShell(
         <>
@@ -546,14 +545,14 @@ function OnboardingSurvey() {
         <div className="survey-container results-view">
           <div className="results-card">
           <div className="plan-header-row">
-            <h2>🍽️ {planDurationLabel(dietPlanDuration)} Diyet Planı</h2>
+            <h2>{planDurationLabel(dietPlanDuration)} Diyet Plani</h2>
             <button
               type="button"
               className="excel-export-btn"
               onClick={() => exportPlanAsExcel(dietPlan, dietPlanDuration, 'diet')}
               title="Excel Olarak Dışa Aktar"
             >
-              <span className="excel-icon" aria-hidden="true">📊</span>
+              <span className="excel-icon" aria-hidden="true">X</span>
               <span>Excel'e Aktar</span>
             </button>
           </div>
@@ -583,7 +582,6 @@ function OnboardingSurvey() {
     );
   }
 
-  // Exercise Plan View
   if (showResults && exercisePlan) {
     return withPageShell(
       <>
@@ -591,14 +589,14 @@ function OnboardingSurvey() {
       <div className="survey-container results-view">
         <div className="results-card">
           <div className="plan-header-row">
-            <h2>💪 {planDurationLabel(exercisePlanDuration)} Egzersiz Planı</h2>
+            <h2>{planDurationLabel(exercisePlanDuration)} Egzersiz Plani</h2>
             <button
               type="button"
               className="excel-export-btn"
               onClick={() => exportPlanAsExcel(exercisePlan, exercisePlanDuration, 'exercise')}
               title="Excel Olarak Dışa Aktar"
             >
-              <span className="excel-icon" aria-hidden="true">📊</span>
+              <span className="excel-icon" aria-hidden="true">X</span>
               <span>Excel'e Aktar</span>
             </button>
           </div>
@@ -692,13 +690,13 @@ function OnboardingSurvey() {
               className="btn btn-primary"
               onClick={() => setShowDietPlanModal(true)}
             >
-              🍽️ Diyet Planı Oluştur
+              Diyet Plani Olustur
             </button>
             <button 
               className="btn btn-primary"
               onClick={() => setShowExercisePlanModal(true)}
             >
-              💪 Egzersiz Planı Oluştur
+              Egzersiz Plani Olustur
             </button>
             <button 
               className="btn btn-secondary"
@@ -713,7 +711,6 @@ function OnboardingSurvey() {
           </div>
         </div>
 
-        {/* Diet Plan Modal */}
         {showDietPlanModal && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -728,7 +725,7 @@ function OnboardingSurvey() {
                   onClick={() => setDietPlanDuration('daily')}
                   disabled={dietPlanLoading}
                 >
-                  <span className="option-icon">📅</span>
+                  <span className="option-icon">D</span>
                   <span className="option-label">Günlük</span>
                 </button>
                 <button
@@ -736,7 +733,7 @@ function OnboardingSurvey() {
                   onClick={() => setDietPlanDuration('weekly')}
                   disabled={dietPlanLoading}
                 >
-                  <span className="option-icon">📊</span>
+                  <span className="option-icon">H</span>
                   <span className="option-label">Haftalık</span>
                 </button>
                 <button
@@ -744,7 +741,7 @@ function OnboardingSurvey() {
                   onClick={() => setDietPlanDuration('monthly')}
                   disabled={dietPlanLoading}
                 >
-                  <span className="option-icon">📈</span>
+                  <span className="option-icon">A</span>
                   <span className="option-label">Aylık</span>
                 </button>
               </div>
@@ -769,7 +766,6 @@ function OnboardingSurvey() {
           </div>
         )}
 
-        {/* Exercise Plan Modal */}
         {showExercisePlanModal && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -784,7 +780,7 @@ function OnboardingSurvey() {
                   onClick={() => setExercisePlanDuration('daily')}
                   disabled={exercisePlanLoading}
                 >
-                  <span className="option-icon">📅</span>
+                  <span className="option-icon">D</span>
                   <span className="option-label">Günlük</span>
                 </button>
                 <button
@@ -792,7 +788,7 @@ function OnboardingSurvey() {
                   onClick={() => setExercisePlanDuration('weekly')}
                   disabled={exercisePlanLoading}
                 >
-                  <span className="option-icon">📊</span>
+                  <span className="option-icon">H</span>
                   <span className="option-label">Haftalık</span>
                 </button>
                 <button
@@ -800,7 +796,7 @@ function OnboardingSurvey() {
                   onClick={() => setExercisePlanDuration('monthly')}
                   disabled={exercisePlanLoading}
                 >
-                  <span className="option-icon">📈</span>
+                  <span className="option-icon">A</span>
                   <span className="option-label">Aylık</span>
                 </button>
               </div>
@@ -845,7 +841,6 @@ function OnboardingSurvey() {
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} className="survey-form">
-          {/* Section 1: Physical Info */}
           <fieldset className="form-section">
             <legend>Fiziksel Bilgiler</legend>
             
@@ -914,7 +909,6 @@ function OnboardingSurvey() {
             </div>
           </fieldset>
 
-          {/* Section 2: Health Goals */}
           <fieldset className="form-section">
             <legend>Sağlık Hedefleri</legend>
 
@@ -957,7 +951,6 @@ function OnboardingSurvey() {
             </div>
           </fieldset>
 
-          {/* Section 3: Lifestyle */}
           <fieldset className="form-section">
             <legend>Yaşam Stili</legend>
 
@@ -1047,7 +1040,6 @@ function OnboardingSurvey() {
             </div>
           </fieldset>
 
-          {/* Section 4: Additional */}
           <fieldset className="form-section">
             <legend>Ek Bilgiler</legend>
 

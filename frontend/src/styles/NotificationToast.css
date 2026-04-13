@@ -1,0 +1,110 @@
+/* NotificationToast.css - Bildirim Toast Görünümü */
+
+.notification-toast {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid #667eea;
+    padding: 16px;
+    max-width: 320px;
+    min-width: 280px;
+    animation: slideInRight 0.3s ease-out;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.notification-toast:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    transform: translateX(-4px);
+}
+
+@keyframes slideInRight {
+    from {
+        right: -400px;
+        opacity: 0;
+    }
+    to {
+        right: 0;
+        opacity: 1;
+    }
+}
+
+/* Header */
+.notification-toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.notification-type-badge {
+    display: inline-block;
+    background: #f0f0f0;
+    color: #333;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.notification-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.notification-close-btn:hover {
+    color: #333;
+}
+
+/* Title */
+.notification-toast-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+/* Message */
+.notification-toast-message {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+
+/* Time */
+.notification-toast-time {
+    color: #999;
+    font-size: 11px;
+    text-align: right;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .notification-toast {
+        max-width: 280px;
+        min-width: 240px;
+        padding: 12px;
+    }
+
+    .notification-toast-title {
+        font-size: 13px;
+    }
+
+    .notification-toast-message {
+        font-size: 12px;
+    }
+}

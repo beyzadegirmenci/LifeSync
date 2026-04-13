@@ -1,5 +1,7 @@
 const { buildStructuredDietPrompt, buildStructuredExercisePrompt, getPeriods } = require('../utils/planPromptBuilder');
 const { parseAndValidatePlan } = require('../utils/planValidator');
+const PlanEventEmitter = require('../observers/PlanEventEmitter');
+const UserNotificationObserver = require('../observers/UserNotificationObserver');
 
 class WellnessPlanFacade {
     constructor(deps) {
@@ -7,13 +9,14 @@ class WellnessPlanFacade {
         this.planModel = deps.planModel || 'llama3.1:8b';
         this.generateRecommendation = deps.generateRecommendation;
         this.callOllama = deps.callOllama;
+        this.planEventEmitter = new PlanEventEmitter();
     }
 
     async generateSurveyRecommendation(profile, classification) {
         return this.generateRecommendation(profile, classification, this.defaultModel);
     }
 
-    async generateStructuredPlan(profile, classification, duration, planType = 'diet') {
+    async generateStructuredPlan(profile, classification, duration, planType = 'diet', userId = null, routineId = null) {
         if (!duration || !['daily', 'weekly', 'monthly'].includes(duration)) {
             return { error: 'Geçersiz zaman aralığı', statusCode: 400 };
         }
@@ -37,6 +40,18 @@ class WellnessPlanFacade {
 
                 if (result.valid) {
                     const key = planType === 'diet' ? 'diet_plan' : 'exercise_plan';
+
+                    if (userId) {
+                        try {
+                            const notificationObserver = new UserNotificationObserver(userId);
+                            this.planEventEmitter.attach(notificationObserver);
+                            await this.planEventEmitter.emitPlanCreated(userId, planType, duration, routineId);
+                            this.planEventEmitter.detach(notificationObserver);
+                        } catch (notificationError) {
+                            console.error('[WellnessPlanFacade] Notification error:', notificationError.message);
+                        }
+                    }
+
                     return {
                         data: {
                             [key]: result.data,
@@ -59,12 +74,12 @@ class WellnessPlanFacade {
         };
     }
 
-    async generateDietPlanResult(profile, classification, duration) {
-        return this.generateStructuredPlan(profile, classification, duration, 'diet');
+    async generateDietPlanResult(profile, classification, duration, userId = null) {
+        return this.generateStructuredPlan(profile, classification, duration, 'diet', userId);
     }
 
-    async generateExercisePlanResult(profile, classification, duration) {
-        return this.generateStructuredPlan(profile, classification, duration, 'exercise');
+    async generateExercisePlanResult(profile, classification, duration, userId = null) {
+        return this.generateStructuredPlan(profile, classification, duration, 'exercise', userId);
     }
 }
 

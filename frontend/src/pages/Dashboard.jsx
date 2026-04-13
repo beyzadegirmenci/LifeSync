@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import NotificationCenter from '../components/NotificationCenter';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -58,7 +59,8 @@ function Dashboard() {
 
   return (
     <div className="dashboard">
-      {/* Navbar */}
+      <NotificationCenter />
+
       <nav className="dashboard-nav">
         <h1 className="nav-logo">LifeSync</h1>
         <div className="nav-right">
@@ -67,12 +69,10 @@ function Dashboard() {
         </div>
       </nav>
 
-      {/* Content */}
       <main className="dashboard-content">
         <h2 className="dashboard-greeting">Welcome back, {user.firstName}!</h2>
 
         <div className="dashboard-grid">
-          {/* Profile Card */}
           <div className="dash-card">
             <h3 className="dash-card-title">Profile</h3>
             <div className="dash-card-body">
@@ -87,7 +87,7 @@ function Dashboard() {
               {user.gender && (
                 <div className="profile-item">
                   <span className="profile-label">Gender</span>
-                  <span className="profile-value">{user.gender === 'male' ? '♂ Male' : '♀ Female'}</span>
+                  <span className="profile-value">{user.gender === 'male' ? 'Male' : 'Female'}</span>
                 </div>
               )}
               {user.age && (
@@ -99,7 +99,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Body Stats Card */}
           <div className="dash-card">
             <h3 className="dash-card-title">Body Stats</h3>
             <div className="dash-card-body">
@@ -128,7 +127,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* BMI Card */}
           <div className="dash-card">
             <h3 className="dash-card-title">BMI</h3>
             <div className="dash-card-body bmi-body">
@@ -144,26 +142,14 @@ function Dashboard() {
               )}
             </div>
           </div>
-
-          {/* Quick Info Card */}
-          <div className="dash-card">
-            <h3 className="dash-card-title">Account</h3>
-            <div className="dash-card-body">
-              <div className="profile-item">
-                <span className="profile-label">User ID</span>
-                <span className="profile-value id-value">{user.userId.slice(0, 8)}...</span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Edit Profile Button */}
         <div className="edit-profile-btn-container">
           <button className="btn btn-edit-profile" onClick={() => navigate('/profile/edit')}>
-            ✏️ Edit Profile
+            Edit Profile
           </button>
           <button className="btn btn-survey" onClick={() => navigate('/survey')}>
-            📋 Sağlık Anketi
+            Saglik Anketi
           </button>
         </div>
       </main>

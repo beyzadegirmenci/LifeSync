@@ -62,6 +62,36 @@ CREATE TABLE IF NOT EXISTS routines (
 CREATE INDEX IF NOT EXISTS idx_routines_user_id ON routines (user_id, created_at DESC);
 
 -- ============================================================
+-- NOTIFICATIONS TABLOSU (Observer Pattern)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id         UUID          NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    
+    -- Bildirim tipi: PlanCreated, ProfileUpdated, vb.
+    type            VARCHAR(50)   NOT NULL,
+    
+    -- Bildirim içeriği
+    title           VARCHAR(255)  NOT NULL,
+    message         TEXT          NOT NULL,
+    
+    -- İlgili plan/routine ID si (opsiyonel)
+    reference_id    UUID,
+    
+    -- Okundu/okunmadı durumu
+    is_read         BOOLEAN       NOT NULL DEFAULT FALSE,
+    
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    read_at         TIMESTAMPTZ
+);
+
+-- Kullanıcı bildirimlerini getir (sık sorgulanan endpoint için)
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id, created_at DESC);
+
+-- Okunmamış bildirimleri hızlı bulmak için
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read) WHERE is_read = FALSE;
+
+-- ============================================================
 -- updated_at OTOMATIK GUNCELLEME
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()

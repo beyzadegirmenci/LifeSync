@@ -117,7 +117,6 @@ function EditProfile() {
 
   return (
     <div className="dashboard">
-      {/* Navbar */}
       <nav className="dashboard-nav">
         <h1 className="nav-logo">LifeSync</h1>
         <div className="nav-right">
@@ -128,12 +127,10 @@ function EditProfile() {
         </div>
       </nav>
 
-      {/* Content */}
       <main className="dashboard-content">
         <h2 className="dashboard-greeting">Edit Profile</h2>
 
         <div className="edit-profile-card">
-          {/* Read-only info */}
           <div className="edit-readonly">
             <div className="readonly-item">
               <span className="readonly-label">Name</span>
@@ -151,7 +148,6 @@ function EditProfile() {
           {success && <div className="success-message">{success}</div>}
 
           <form className="edit-form" onSubmit={handleSubmit}>
-            {/* Password Section */}
             <div className="edit-section">
               <h3 className="edit-section-title">Change Password</h3>
               <div className="edit-row">
@@ -174,7 +170,6 @@ function EditProfile() {
               </div>
             </div>
 
-            {/* Body Info Section */}
             <div className="edit-section">
               <h3 className="edit-section-title">Body Info</h3>
               <div className="edit-row">
