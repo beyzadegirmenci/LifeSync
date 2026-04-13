@@ -68,6 +68,21 @@ test('ProfileBuilder rejects out-of-range numbers and invalid genders', () => {
 	assert.throws(() => new ProfileBuilder().withGender('other'), /Gender must be male or female/);
 });
 
+test('ProfileBuilder accepts null password and preserves omitted fields', () => {
+	const profile = new ProfileBuilder()
+		.withPassword(null, null)
+		.withGender(undefined)
+		.build();
+
+	assert.deepEqual(profile, {});
+});
+
+test('ProfileBuilder rejects non-integer numeric inputs', () => {
+	assert.throws(() => new ProfileBuilder().withHeight('180.5'), /Height must be an integer between 1 and 300/);
+	assert.throws(() => new ProfileBuilder().withWeight('abc'), /Weight must be an integer between 1 and 500/);
+	assert.throws(() => new ProfileBuilder().withAge(12.2), /Age must be an integer between 1 and 150/);
+});
+
 test('SqlUpdateBuilder accumulates fields and values in order', () => {
 	const query = new SqlUpdateBuilder()
 		.addField('height', 180)
@@ -95,4 +110,15 @@ test('SqlUpdateBuilder can build a WHERE clause without update fields', () => {
 	assert.deepEqual(query.values, [99]);
 	assert.equal(query.whereParamIndex, 1);
 	assert.equal(query.whereColumn, 'user_id');
+});
+
+test('SqlUpdateBuilder keeps null values in update order', () => {
+	const query = new SqlUpdateBuilder()
+		.addField('height', null)
+		.addField('gender', 'female')
+		.build('user_id', 17);
+
+	assert.equal(query.setClause, 'height = $1, gender = $2');
+	assert.deepEqual(query.values, [null, 'female', 17]);
+	assert.equal(query.whereParamIndex, 3);
 });
