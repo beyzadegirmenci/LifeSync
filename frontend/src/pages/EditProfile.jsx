@@ -63,7 +63,6 @@ function EditProfile() {
     setError('');
     setSuccess('');
 
-    
     if (form.password && form.password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -86,7 +85,6 @@ function EditProfile() {
       if (form.age !== '') payload.age = parseInt(form.age);
       if (form.gender !== '') payload.gender = form.gender;
 
-      
       if (form.height === '') payload.height = null;
       if (form.weight === '') payload.weight = null;
       if (form.age === '') payload.age = null;
@@ -97,7 +95,7 @@ function EditProfile() {
       });
 
       setUser(res.data.user);
-      setForm(prev => ({ ...prev, password: '', passwordConfirm: '' }));
+      setForm((prev) => ({ ...prev, password: '', passwordConfirm: '' }));
       setSuccess('Profile updated successfully!');
       setTimeout(() => navigate('/dashboard'), 700);
     } catch (err) {
@@ -109,20 +107,20 @@ function EditProfile() {
 
   if (loading) {
     return (
-      <div className="dashboard">
+      <div className="dashboard" data-testid="edit-profile-page">
         <p className="dashboard-loading">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="dashboard">
+    <div className="dashboard" data-testid="edit-profile-page">
       <nav className="dashboard-nav">
         <h1 className="nav-logo">LifeSync</h1>
         <div className="nav-right">
           <span className="nav-user">{user.firstName} {user.lastName}</span>
-          <button className="btn btn-nav-back" onClick={() => navigate('/dashboard')}>
-            ← Dashboard
+          <button className="btn btn-nav-back" data-testid="back-to-dashboard" onClick={() => navigate('/dashboard')}>
+            Back to Dashboard
           </button>
         </div>
       </nav>
@@ -144,16 +142,17 @@ function EditProfile() {
 
           <hr className="edit-divider" />
 
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+          {error && <div className="error-message" data-testid="edit-profile-error">{error}</div>}
+          {success && <div className="success-message" data-testid="edit-profile-success">{success}</div>}
 
-          <form className="edit-form" onSubmit={handleSubmit}>
+          <form className="edit-form" data-testid="edit-profile-form" onSubmit={handleSubmit}>
             <div className="edit-section">
               <h3 className="edit-section-title">Change Password</h3>
               <div className="edit-row">
                 <input
                   type="password"
                   name="password"
+                  data-testid="edit-password-input"
                   placeholder="New Password"
                   value={form.password}
                   onChange={handleChange}
@@ -162,6 +161,7 @@ function EditProfile() {
                 <input
                   type="password"
                   name="passwordConfirm"
+                  data-testid="edit-password-confirm-input"
                   placeholder="Confirm Password"
                   value={form.passwordConfirm}
                   onChange={handleChange}
@@ -178,6 +178,7 @@ function EditProfile() {
                   <input
                     type="number"
                     name="height"
+                    data-testid="edit-height-input"
                     placeholder="Height"
                     value={form.height}
                     onChange={handleChange}
@@ -190,6 +191,7 @@ function EditProfile() {
                   <input
                     type="number"
                     name="weight"
+                    data-testid="edit-weight-input"
                     placeholder="Weight"
                     value={form.weight}
                     onChange={handleChange}
@@ -204,6 +206,7 @@ function EditProfile() {
                   <input
                     type="number"
                     name="age"
+                    data-testid="edit-age-input"
                     placeholder="Age"
                     value={form.age}
                     onChange={handleChange}
@@ -213,7 +216,7 @@ function EditProfile() {
                 </div>
                 <div className="edit-field">
                   <label>Gender</label>
-                  <select name="gender" value={form.gender} onChange={handleChange}>
+                  <select name="gender" data-testid="edit-gender-select" value={form.gender} onChange={handleChange}>
                     <option value="">Not specified</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -222,7 +225,7 @@ function EditProfile() {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" data-testid="save-profile-button" disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </form>

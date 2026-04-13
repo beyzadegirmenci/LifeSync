@@ -96,9 +96,9 @@ function AuthPage() {
 
   if (authChecking) {
     return (
-      <div className="app">
+      <div className="app" data-testid="auth-page">
         <div className="auth-container">
-          <div className="auth-card">
+          <div className="auth-card" data-testid="auth-card">
             <h1>LifeSync</h1>
             <p className="subtitle">Checking your session...</p>
           </div>
@@ -108,20 +108,21 @@ function AuthPage() {
   }
 
   return (
-    <div className="app">
+    <div className="app" data-testid="auth-page">
       <div className="auth-container">
-        <div className="auth-card">
+        <div className="auth-card" data-testid="auth-card">
           <h1>LifeSync</h1>
-          <p className="subtitle">{isLogin ? 'Sign in to your account' : 'Create your account'}</p>
+          <p className="subtitle" data-testid="auth-subtitle">{isLogin ? 'Sign in to your account' : 'Create your account'}</p>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && <div className="error-message" data-testid="auth-error">{error}</div>}
 
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form" data-testid="auth-form">
             {!isLogin && (
               <div className="name-row">
                 <input
                   type="text"
                   name="firstName"
+                  data-testid="first-name-input"
                   placeholder="First Name"
                   value={form.firstName}
                   onChange={handleChange}
@@ -130,6 +131,7 @@ function AuthPage() {
                 <input
                   type="text"
                   name="lastName"
+                  data-testid="last-name-input"
                   placeholder="Last Name"
                   value={form.lastName}
                   onChange={handleChange}
@@ -141,6 +143,7 @@ function AuthPage() {
             <input
               type="email"
               name="email"
+              data-testid="email-input"
               placeholder="Email"
               value={form.email}
               onChange={handleChange}
@@ -150,6 +153,7 @@ function AuthPage() {
             <input
               type="password"
               name="password"
+              data-testid="password-input"
               placeholder="Password"
               value={form.password}
               onChange={handleChange}
@@ -161,6 +165,7 @@ function AuthPage() {
               <input
                 type="password"
                 name="passwordConfirm"
+                data-testid="password-confirm-input"
                 placeholder="Confirm Password"
                 value={form.passwordConfirm}
                 onChange={handleChange}
@@ -173,7 +178,7 @@ function AuthPage() {
               <>
                 <p className="section-label">Health Info (optional)</p>
                 <div className="health-row">
-                  <select name="gender" value={form.gender} onChange={handleChange}>
+                  <select name="gender" data-testid="gender-select" value={form.gender} onChange={handleChange}>
                     <option value="">Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -181,6 +186,7 @@ function AuthPage() {
                   <input
                     type="number"
                     name="age"
+                    data-testid="age-input"
                     placeholder="Age"
                     value={form.age}
                     onChange={handleChange}
@@ -192,6 +198,7 @@ function AuthPage() {
                   <input
                     type="number"
                     name="height"
+                    data-testid="height-input"
                     placeholder="Height (cm)"
                     value={form.height}
                     onChange={handleChange}
@@ -201,6 +208,7 @@ function AuthPage() {
                   <input
                     type="number"
                     name="weight"
+                    data-testid="weight-input"
                     placeholder="Weight (kg)"
                     value={form.weight}
                     onChange={handleChange}
@@ -211,14 +219,14 @@ function AuthPage() {
               </>
             )}
 
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button type="submit" className="btn btn-primary" data-testid="auth-submit" disabled={loading}>
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
             </button>
           </form>
 
-          <p className="toggle-text">
+          <p className="toggle-text" data-testid="auth-toggle-text">
             {isLogin ? "Don't have an account?" : 'Already have an account?'}
-            <button className="toggle-btn" onClick={toggleMode}>
+            <button className="toggle-btn" data-testid="auth-toggle" onClick={toggleMode}>
               {isLogin ? 'Sign Up' : 'Sign In'}
             </button>
           </p>

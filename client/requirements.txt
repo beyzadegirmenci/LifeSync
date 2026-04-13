@@ -1,1 +1,2 @@
 requests
+selenium>=4.30.0
