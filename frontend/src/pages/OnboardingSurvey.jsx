@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import PlanTable from '../components/PlanTable';
+import { ExportCreatorFactory } from '../factory/export/ExportCreatorFactory';
 import '../styles/OnboardingSurvey.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -461,31 +461,33 @@ function OnboardingSurvey() {
     return { days, sections: usedSections, data };
   };
 
-  const exportPlanAsExcel = (planData, duration, planType) => {
-    if (!planData || !planData.periods || !planData.rows) {
-      setError('Plan Excel olarak oluşturulamadı, lütfen tekrar deneyin.');
-      return;
+  const exportPlanByType = (planData, duration, planType, exportType) => {
+    try {
+      const creator = ExportCreatorFactory.create(exportType);
+      const exporter = creator.createExporter();
+      exporter.export(planData, { duration, planType, dataType: 'plan' });
+    } catch (err) {
+      setError(err.message || 'Plan export edilirken bir hata olustu.');
     }
+  };
 
-    const { periods, rows } = planData;
-    const header = [planType === 'diet' ? 'Öğün / Gün' : 'Egzersiz / Gün', ...periods];
-    const data = [header];
+  const exportSurveyResultByType = (exportType) => {
+    try {
+      if (!classification || !recommendation) {
+        setError('Export icin anket sonucu bulunamadi.');
+        return;
+      }
 
-    rows.forEach((row) => {
-      data.push([row.title, ...row.items]);
-    });
+      const creator = ExportCreatorFactory.create(exportType);
+      const exporter = creator.createExporter();
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
-
-    // Set column widths
-    ws['!cols'] = [{ wch: 16 }, ...periods.map(() => ({ wch: 30 }))];
-
-    const wb = XLSX.utils.book_new();
-    const planLabel = planType === 'diet' ? 'Diyet' : 'Egzersiz';
-    XLSX.utils.book_append_sheet(wb, ws, `${planLabel} Planı`);
-
-    const fileName = `lifesync_${planType === 'diet' ? 'diyet' : 'egzersiz'}_${duration}_plan.xlsx`;
-    XLSX.writeFile(wb, fileName);
+      exporter.export(
+        { classification, recommendation },
+        { dataType: 'survey', label: 'anket' }
+      );
+    } catch (err) {
+      setError(err.message || 'Anket sonucu export edilirken bir hata olustu.');
+    }
   };
 
   const renderPlanTable = (rawText, planType) => {
@@ -546,15 +548,24 @@ function OnboardingSurvey() {
           <div className="results-card">
           <div className="plan-header-row">
             <h2>{planDurationLabel(dietPlanDuration)} Diyet Plani</h2>
-            <button
-              type="button"
-              className="excel-export-btn"
-              onClick={() => exportPlanAsExcel(dietPlan, dietPlanDuration, 'diet')}
-              title="Excel Olarak Dışa Aktar"
-            >
-              <span className="excel-icon" aria-hidden="true">X</span>
-              <span>Excel'e Aktar</span>
-            </button>
+            <div className="export-actions">
+              <button
+                type="button"
+                className="export-btn export-btn-excel"
+                onClick={() => exportPlanByType(dietPlan, dietPlanDuration, 'diet', 'excel')}
+                title="Excel Olarak Disa Aktar"
+              >
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                className="export-btn export-btn-pdf"
+                onClick={() => exportPlanByType(dietPlan, dietPlanDuration, 'diet', 'pdf')}
+                title="PDF Olarak Disa Aktar"
+              >
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
 
           <PlanTable planData={dietPlan} />
@@ -590,15 +601,24 @@ function OnboardingSurvey() {
         <div className="results-card">
           <div className="plan-header-row">
             <h2>{planDurationLabel(exercisePlanDuration)} Egzersiz Plani</h2>
-            <button
-              type="button"
-              className="excel-export-btn"
-              onClick={() => exportPlanAsExcel(exercisePlan, exercisePlanDuration, 'exercise')}
-              title="Excel Olarak Dışa Aktar"
-            >
-              <span className="excel-icon" aria-hidden="true">X</span>
-              <span>Excel'e Aktar</span>
-            </button>
+            <div className="export-actions">
+              <button
+                type="button"
+                className="export-btn export-btn-excel"
+                onClick={() => exportPlanByType(exercisePlan, exercisePlanDuration, 'exercise', 'excel')}
+                title="Excel Olarak Disa Aktar"
+              >
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                className="export-btn export-btn-pdf"
+                onClick={() => exportPlanByType(exercisePlan, exercisePlanDuration, 'exercise', 'pdf')}
+                title="PDF Olarak Disa Aktar"
+              >
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
 
           <PlanTable planData={exercisePlan} />
@@ -707,6 +727,25 @@ function OnboardingSurvey() {
               }}
             >
               Tekrar Başla
+            </button>
+          </div>
+
+          <div className="results-export-actions">
+            <button
+              type="button"
+              className="export-btn export-btn-excel"
+              onClick={() => exportSurveyResultByType('excel')}
+              title="Anket sonucunu Excel olarak disa aktar"
+            >
+              Excel Export
+            </button>
+            <button
+              type="button"
+              className="export-btn export-btn-pdf"
+              onClick={() => exportSurveyResultByType('pdf')}
+              title="Anket sonucunu PDF olarak disa aktar"
+            >
+              PDF Export
             </button>
           </div>
         </div>
