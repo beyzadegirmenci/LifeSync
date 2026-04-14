@@ -3,6 +3,7 @@ const axios = require('axios');
 const WellnessPlanFacade = require('../facades/WellnessPlanFacade');
 const PlanEventEmitter = require('../observers/PlanEventEmitter');
 const UserNotificationObserver = require('../observers/UserNotificationObserver');
+const { dispatchNotification } = require('../observers/notificationDispatcher');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
@@ -408,9 +409,11 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
             try {
                 const eventEmitter = new PlanEventEmitter();
                 const observer = new UserNotificationObserver(userId);
-                eventEmitter.attach(observer);
-                await eventEmitter.emitSurveyCompleted(userId);
-                eventEmitter.detach(observer);
+                await dispatchNotification(
+                    eventEmitter,
+                    observer,
+                    () => eventEmitter.emitSurveyCompleted(userId)
+                );
             } catch (notificationError) {
                 console.error('Survey notification error:', notificationError.message);
             }

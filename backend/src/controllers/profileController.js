@@ -2,6 +2,7 @@ const User = require('../models/User');
 const ProfileBuilder = require('../builders/ProfileBuilder');
 const PlanEventEmitter = require('../observers/PlanEventEmitter');
 const UserNotificationObserver = require('../observers/UserNotificationObserver');
+const { dispatchNotification } = require('../observers/notificationDispatcher');
 
 const profileController = {
     
@@ -50,9 +51,11 @@ const profileController = {
             try {
                 const eventEmitter = new PlanEventEmitter();
                 const observer = new UserNotificationObserver(req.userId);
-                eventEmitter.attach(observer);
-                await eventEmitter.emitProfileUpdated(req.userId);
-                eventEmitter.detach(observer);
+                await dispatchNotification(
+                    eventEmitter,
+                    observer,
+                    () => eventEmitter.emitProfileUpdated(req.userId)
+                );
             } catch (notificationError) {
                 console.error('Profile notification error:', notificationError.message);
             }

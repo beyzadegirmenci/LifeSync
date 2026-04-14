@@ -2,6 +2,7 @@ const { buildStructuredDietPrompt, buildStructuredExercisePrompt, getPeriods } =
 const { parseAndValidatePlan } = require('../utils/planValidator');
 const PlanEventEmitter = require('../observers/PlanEventEmitter');
 const UserNotificationObserver = require('../observers/UserNotificationObserver');
+const { dispatchNotification } = require('../observers/notificationDispatcher');
 
 class WellnessPlanFacade {
     constructor(deps) {
@@ -44,9 +45,11 @@ class WellnessPlanFacade {
                     if (userId) {
                         try {
                             const notificationObserver = new UserNotificationObserver(userId);
-                            this.planEventEmitter.attach(notificationObserver);
-                            await this.planEventEmitter.emitPlanCreated(userId, planType, duration, routineId);
-                            this.planEventEmitter.detach(notificationObserver);
+                            await dispatchNotification(
+                                this.planEventEmitter,
+                                notificationObserver,
+                                () => this.planEventEmitter.emitPlanCreated(userId, planType, duration, routineId)
+                            );
                         } catch (notificationError) {
                             console.error('[WellnessPlanFacade] Notification error:', notificationError.message);
                         }

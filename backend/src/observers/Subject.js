@@ -20,9 +20,18 @@ class Subject {
 
     async notify(eventData) {
         console.log(`[Subject] Notifying ${this.observers.length} observer(s)...`);
+        const failures = [];
+
         for (const observer of this.observers) {
-            await observer.update(eventData);
+            try {
+                await observer.update(eventData);
+            } catch (error) {
+                failures.push({ observer, error });
+                console.error('[Subject] Observer update failed:', error.message);
+            }
         }
+
+        return failures;
     }
 
     getState() {
