@@ -35,8 +35,25 @@ const User = {
     
     async findById(userId) {
         const result = await query(
-            'SELECT user_id, email, first_name, last_name, height, weight, age, gender FROM users WHERE user_id = $1',
+            'SELECT user_id, email, first_name, last_name, height, weight, age, gender, level, profile_data FROM users WHERE user_id = $1',
             [userId]
+        );
+        return result.rows[0] || null;
+    },
+
+    
+    async updateLevel(userId, level) {
+        const validLevels = ['beginner', 'intermediate', 'advanced'];
+        if (!validLevels.includes(level)) {
+            throw new Error(`Gecersiz level degeri: ${level}`);
+        }
+
+        const result = await query(
+            `UPDATE users
+             SET level = $1
+             WHERE user_id = $2
+             RETURNING user_id, email, first_name, last_name, height, weight, age, gender, level, profile_data`,
+            [level, userId]
         );
         return result.rows[0] || null;
     },
@@ -69,7 +86,7 @@ const User = {
         const builtQuery = updateBuilder.build('user_id', userId);
         const result = await query(
             `UPDATE users SET ${builtQuery.setClause} WHERE user_id = $${builtQuery.whereParamIndex}
-             RETURNING user_id, email, first_name, last_name, height, weight, age, gender`,
+             RETURNING user_id, email, first_name, last_name, height, weight, age, gender, level`,
             builtQuery.values
         );
 

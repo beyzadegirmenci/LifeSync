@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const axios = require('axios');
 const WellnessPlanFacade = require('../facades/WellnessPlanFacade');
+const { getStrategy } = require('../strategies/StrategyFactory');
+const { getLevelLabelTr, normalizeFitnessLevel } = require('../constants/fitnessLevels');
 const PlanEventEmitter = require('../observers/PlanEventEmitter');
 const UserNotificationObserver = require('../observers/UserNotificationObserver');
 const { dispatchNotification } = require('../observers/notificationDispatcher');
@@ -102,20 +104,27 @@ const dashboardController = {
             reasons.push('Su tüketimi düşük.');
         }
 
-        let level = 'Beginner';
+        let level = 'beginner';
         if (score <= 2) {
-            level = 'Beginner';
+            level = 'beginner';
         } else if (score <= 5) {
-            level = 'Intermediate';
+            level = 'intermediate';
         } else {
-            level = 'Advanced';
+            level = 'advanced';
         }
 
-        return { level, score, reasons, bmi };
+        return {
+            level,
+            levelLabelTr: getLevelLabelTr(level),
+            score,
+            reasons,
+            bmi
+        };
     },
 
     async generateRecommendation(profile, classification, model = DEFAULT_MODEL) {
-        const prompt = this.buildPrompt(profile, classification);
+        const strategy = getStrategy(classification.level);
+        const prompt = strategy.applyToPrompt(this.buildPrompt(profile, classification), profile, classification);
 
         const payload = {
             model: model,
@@ -133,7 +142,11 @@ const dashboardController = {
             });
 
             const rawText = response.data.response?.trim() || 'Model boş yanıt döndürdü.';
-            const sanitizedText = this.sanitizeRecommendationText(rawText, profile, classification.level);
+            const sanitizedText = this.sanitizeRecommendationText(
+                rawText,
+                profile,
+                normalizeFitnessLevel(classification.level)
+            );
 
             return {
                 level: classification.level,
@@ -147,7 +160,7 @@ const dashboardController = {
             console.error('Ollama error:', error.message);
             return {
                 level: classification.level,
-                raw_text: 'AI önerisi şu anda üretilemedi. Lütfen daha sonra tekrar deneyin.',
+                raw_text: strategy.getDefaultRecommendation(),
                 metadata: {
                     model: model,
                     error: 'Ollama bağlantısı kurulamadı. Varsayılan öneriler gösterilmektedir.'
@@ -157,6 +170,8 @@ const dashboardController = {
     },
 
     buildPrompt(profile, result) {
+        const levelKey = normalizeFitnessLevel(result.level);
+        const levelLabelTr = result.levelLabelTr ?? getLevelLabelTr(levelKey);
         return `
 Sen bir sağlıklı yaşam asistanısın.
 Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
@@ -164,7 +179,7 @@ Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
 ÖNEMLİ KURALLAR:
 - Tıbbi teşhis koyma.
 - Riskli, aşırı zorlayıcı öneriler verme.
-- Kullanıcının seviyesi ${result.level} olduğu için önerileri buna uygun hazırla.
+- Kullanıcının fitness seviyesi ${levelLabelTr} olduğu için önerileri buna uygun hazırla.
 - Cevabı Türkçe ver.
 - Formatı düzenli olsun.
 - Çok uzun yazma.
@@ -190,7 +205,7 @@ KULLANICI BİLGİLERİ:
 - Günlük su: ${profile.water_liters_per_day} litre
 - Günlük ekran süresi: ${profile.screen_hours_per_day} saat
 - Ek sağlık notu: ${profile.health_note}
-- Seviye: ${result.level}
+- Seviye: ${levelLabelTr}
 
 Lütfen şu başlıklarda cevap ver:
 1. Kısa genel değerlendirme
@@ -233,7 +248,7 @@ Her bölüm kısa, uygulanabilir ve maddeli olsun.
         return output;
     },
 
-    sanitizeRecommendationText(text, profile = {}, level = 'Beginner') {
+    sanitizeRecommendationText(text, profile = {}, level = 'beginner') {
         if (!text || typeof text !== 'string') {
             return 'AI önerisi şu anda üretilemedi. Lütfen daha sonra tekrar deneyin.';
         }
@@ -263,104 +278,6 @@ Her bölüm kısa, uygulanabilir ve maddeli olsun.
         }
 
         return output;
-    },
-
-    getDefaultRecommendation(level, profile) {
-        const beginnerRecs = `
-## 1. Kısa Genel Değerlendirme
-Başlangıç aşamasındasınız. Hedeflerinize ulaşmak için temel alışkanlıklar oluşturmalısınız.
-
-## 2. Diyet Önerileri
-- Günde 3 ana öğün yapın
-- İşlenmiş gıdaları azaltın
-- Meyve ve sebze tüketimini artırın
-- Proteini dengeli tüketin
-
-## 3. Egzersiz Önerileri
-- Haftada 3 gün 30 dakika hafif aktivite
-- Yürüyüş veya bisiklet ile başlayın
-- Germeler (stretch) yapmayı unutmayın
-
-## 4. Günlük Rutin Önerisi
-- Sabah erken kalkış alışkanlığı yapın
-- Gün içinde ara vermeler alın
-- Belli saatlerde yemek yiyin
-
-## 5. Su İçme ve Alışkanlıklar
-- Günde en az 8-10 bardak su için
-- Sabah ilk işiniz su içmek olsun
-- Uyku öncesi 1 saat az su tüketin
-
-## 6. Dikkat Edilmesi Gerekenler
-- Çok hızlı değişim beklememeyin
-- Sabrın ve disiplinin devamını sağlayın
-`;
-
-        const intermediateRecs = `
-## 1. Kısa Genel Değerlendirme
-Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye devam edin.
-
-## 2. Diyet Önerileri
-- Makro besinleri hesaplamaya başlayın
-- Beslenme planını yazılı tutun
-- Sağlıklı snacklar seçin
-- Su tüketimini artırın
-
-## 3. Egzersiz Önerileri
-- Haftada 4-5 gün egzersiz yapın
-- Dayanıklılık ve kuvvet antrenmanı karıştırın
-- Kişisel bir program oluşturun
-
-## 4. Günlük Rutin Önerisi
-- Egzersiz için sabit zaman belirleyin
-- Uyku düzeni düzenli olsun
-- Meditasyon veya yoga deneyin
-
-## 5. Su İçme ve Alışkanlıklar
-- Beden ağırlığınıza göre su hesapla: kilo × 35ml
-- Egzersizden sonra fazla su içmeyi unutmayın
-
-## 6. Dikkat Edilmesi Gerekenler
-- Aşırı antrenman yapmayın
-- Beslenmeye dikkat edin
-- İlerlemelerinizi takip edin
-`;
-
-        const advancedRecs = `
-## 1. Kısa Genel Değerlendirme
-İleri seviyesiniz. Sağlıklı yaşam alışkanlıklarınız iyi yerleşmiş durumda.
-
-## 2. Diyet Önerileri
-- İleri seviye beslenme planı uygulamak
-- Beden kompozisyonunuza göre makro ayarı
-- Suplement kullanımını değerlendir
-- Beslenme deklaresini okumayı alışkanlık haline getir
-
-## 3. Egzersiz Önerileri
-- Haftada 5-6 gün spor yapın
-- Farklı antrenman yöntemlerini dene
-- Progresif aşırı yüklenme uygula
-- Esneklik ve dengeyi ihmal etme
-
-## 4. Günlük Rutin Önerisi
-- Dinlenme günlerini planla
-- Stres yönetimi önemli
-- Kalite uyku hedef: 7-9 saat
-
-## 5. Su İçme ve Alışkanlıklar
-- Egzersiz türüne göre sıvı kaybı kompanse et
-- Elektrolit dengesini gözet
-- Günlük su hedefini artırabilir
-
-## 6. Dikkat Edilmesi Gerekenler
-- Aşırı antrenman sendromuna dikkat
-- Yaralanmalardan korunun
-- Periyodik sağlık kontrolü yaptır
-`;
-
-        if (level === 'Beginner') return beginnerRecs;
-        if (level === 'Intermediate') return intermediateRecs;
-        return advancedRecs;
     },
 
     async survey(req, res) {
@@ -401,6 +318,13 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
 
             // Classify user
             const classification = this.classifyUser(profile);
+
+            // Persist hesaplanan fitness seviyesini kullanıcı kaydına yaz.
+            try {
+                await User.updateLevel(userId, classification.level);
+            } catch (updateError) {
+                console.error('Survey level update error:', updateError.message);
+            }
 
             // Facade handles recommendation generation complexity behind one simple API.
             const wellnessPlanFacade = createWellnessPlanFacade(this);
@@ -487,7 +411,10 @@ Orta seviyesiniz. Şimdiye kadar iyi bir temel oluşturdunuz, bunu geliştirmeye
 
     buildDietPlanPrompt(profile, classification, durationLabel, duration) {
         const bmi = classification?.bmi || 'bilinmiyor';
-        const level = classification?.level || 'bilinmiyor';
+        const levelKey = classification?.level != null
+            ? normalizeFitnessLevel(classification.level)
+            : null;
+        const level = levelKey ? getLevelLabelTr(levelKey) : 'bilinmiyor';
         const waterPerDay = profile.water_liters_per_day || 2;
         const preferenceText = `${profile.diet_preference || ''} ${profile.allergy_or_restriction || ''}`.toLowerCase();
         const noRedMeat = /(k[ıi]rm[ıi]z[ıi].*(et|par[çc]a)|dana|kuzu|s[ıi][ğg]?[ıi]r)/i.test(preferenceText)
@@ -1074,7 +1001,8 @@ Yalnızca ${durationLabel} planı üret.
 
     buildExercisePlanPrompt(profile, classification, durationLabel, duration) {
         const bmi = classification?.bmi || 'bilinmiyor';
-        const level = classification?.level || 'Intermediate';
+        const levelKey = normalizeFitnessLevel(classification?.level || 'intermediate');
+        const level = getLevelLabelTr(levelKey);
         const durationInstruction = duration === 'daily'
             ? 'Sadece 1 günlük plan üret. 2. günü yazma.'
             : duration === 'weekly'
@@ -1145,7 +1073,7 @@ Yalnızca ${durationLabel} planı üret.
         return this.sanitizePlanByDuration(text, duration);
     },
 
-    async generateExercisePlan(prompt, model = DEFAULT_MODEL, level = 'Beginner', duration = 'weekly') {
+    async generateExercisePlan(prompt, model = DEFAULT_MODEL, level = 'beginner', duration = 'weekly') {
         const payload = {
             model: model,
             prompt: prompt,
@@ -1204,7 +1132,8 @@ Yalnızca ${durationLabel} planı üret.
         }
     },
 
-    getDefaultExercisePlan(level = 'Beginner') {
+    getDefaultExercisePlan(level = 'beginner') {
+        const key = normalizeFitnessLevel(level);
         const beginnerPlan = `
 ## Haftalık Egzersiz Planı - Başlangıç Seviyesi
 
@@ -1422,9 +1351,9 @@ Salı ile aynı egzersizler, başlayan için alternatifler:
 - Suplementasyon düşünün (creatine, whey protein gibi)
 `;
 
-        if (level === 'Beginner') return beginnerPlan;
-        if (level === 'Intermediate') return intermediatePlan;
-        return advancedPlan;
+        if (key === 'intermediate') return intermediatePlan;
+        if (key === 'advanced') return advancedPlan;
+        return beginnerPlan;
     },
 
     async getNotifications(req, res) {

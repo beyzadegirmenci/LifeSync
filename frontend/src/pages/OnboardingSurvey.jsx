@@ -7,6 +7,28 @@ import '../styles/OnboardingSurvey.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+const FITNESS_LEVEL_LABEL_TR = {
+  beginner: 'Başlangıç',
+  intermediate: 'Orta',
+  advanced: 'İleri'
+};
+
+function fitnessLevelBadgeClass(level) {
+  const key = String(level || 'beginner').toLowerCase();
+  return FITNESS_LEVEL_LABEL_TR[key] ? key : 'beginner';
+}
+
+function fitnessLevelDisplay(classification) {
+  if (!classification) return '-';
+  const key = String(classification.level || '').toLowerCase();
+  return (
+    classification.levelLabelTr ??
+    FITNESS_LEVEL_LABEL_TR[key] ??
+    classification.level ??
+    '-'
+  );
+}
+
 function OnboardingSurvey() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -664,8 +686,8 @@ function OnboardingSurvey() {
               </div>
               <div className="summary-item">
                 <span className="label">Seviye</span>
-                <span className={`value level-badge level-${classification.level.toLowerCase()}`}>
-                  {classification.level}
+                <span className={`value level-badge level-${fitnessLevelBadgeClass(classification.level)}`}>
+                  {fitnessLevelDisplay(classification)}
                 </span>
               </div>
               <div className="summary-item">

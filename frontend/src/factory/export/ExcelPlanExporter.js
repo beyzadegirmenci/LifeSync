@@ -48,7 +48,7 @@ export class ExcelPlanExporter extends PlanExporter {
     const rows = [
       ['Alan', 'Deger'],
       ['BMI', classification.bmi ?? '-'],
-      ['Seviye', classification.level ?? '-'],
+      ['Seviye', classification.levelLabelTr ?? classification.level ?? '-'],
       ['Skor', classification.score ?? '-'],
       ['Model', recommendation?.metadata?.model ?? '-']
     ];

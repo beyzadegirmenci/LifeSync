@@ -28,12 +28,20 @@ class UserProfile:
     health_note: str
 
 
+LEVEL_LABEL_TR = {
+    "beginner": "Başlangıç",
+    "intermediate": "Orta",
+    "advanced": "İleri",
+}
+
+
 @dataclass
 class ClassificationResult:
     level: str
     score: int
     reasons: List[str]
     bmi: float
+    level_label_tr: str = ""
 
 
 @dataclass
@@ -156,21 +164,23 @@ def classify_user(profile: UserProfile) -> ClassificationResult:
         reasons.append("Su tüketimi düşük.")
 
     if score <= 2:
-        level = "Beginner"
+        level = "beginner"
     elif score <= 5:
-        level = "Intermediate"
+        level = "intermediate"
     else:
-        level = "Advanced"
+        level = "advanced"
 
     return ClassificationResult(
         level=level,
         score=score,
         reasons=reasons,
         bmi=round(bmi, 1),
+        level_label_tr=LEVEL_LABEL_TR[level],
     )
 
 
 def build_prompt(profile: UserProfile, result: ClassificationResult) -> str:
+    level_tr = result.level_label_tr or LEVEL_LABEL_TR.get(result.level, result.level)
     return f"""
 Sen bir sağlıklı yaşam asistanısın.
 Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
@@ -178,7 +188,7 @@ Kullanıcı için güvenli, uygulanabilir, kısa ve net öneriler üret.
 ÖNEMLİ KURALLAR:
 - Tıbbi teşhis koyma.
 - Riskli, aşırı zorlayıcı öneriler verme.
-- Kullanıcının seviyesi {result.level} olduğu için önerileri buna uygun hazırla.
+- Kullanıcının fitness seviyesi {level_tr} olduğu için önerileri buna uygun hazırla.
 - Cevabı Türkçe ver.
 - Formatı düzenli olsun.
 - Çok uzun yazma.
@@ -198,7 +208,7 @@ KULLANICI BİLGİLERİ:
 - Günlük su: {profile.water_liters_per_day} litre
 - Günlük ekran süresi: {profile.screen_hours_per_day} saat
 - Ek sağlık notu: {profile.health_note}
-- Seviye: {result.level}
+- Seviye: {level_tr}
 
 Lütfen şu başlıklarda cevap ver:
 1. Kısa genel değerlendirme

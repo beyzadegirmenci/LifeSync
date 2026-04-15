@@ -102,7 +102,9 @@ export class PdfPlanExporter extends PlanExporter {
     doc.setFontSize(10);
 
     writeLine(`BMI: ${classification.bmi ?? '-'}`);
-    writeLine(`Seviye: ${classification.level ?? '-'}`);
+    writeLine(
+      `Seviye: ${classification.levelLabelTr ?? classification.level ?? '-'}`
+    );
     writeLine(`Skor: ${classification.score ?? '-'}`);
     writeLine(`Model: ${recommendation?.metadata?.model ?? '-'}`);
     setY(getY() + 3);
