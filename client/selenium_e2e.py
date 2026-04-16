@@ -18,6 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_FRONTEND_URL = os.getenv("LIFESYNC_FRONTEND_URL", "http://localhost:5173")
 DEFAULT_TIMEOUT_SECONDS = int(os.getenv("SELENIUM_TIMEOUT_SECONDS", "20"))
+ARTIFACTS_DIR = os.getenv("SELENIUM_ARTIFACTS_DIR", "").strip()
 
 
 @dataclass
@@ -76,10 +77,12 @@ class LifeSyncSmokeTest:
     def open_login_page(self) -> None:
         self.driver.get(f"{DEFAULT_FRONTEND_URL}/login")
         self.wait_for_testid("auth-page")
+        self.capture("01-login-page")
 
     def register_user(self, user: TestUser) -> None:
         self.click_testid("auth-toggle")
         self.wait.until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, '[data-testid="auth-subtitle"]'), "Create your account"))
+        self.capture("02-signup-page")
 
         self.fill_testid("first-name-input", user.first_name)
         self.fill_testid("last-name-input", user.last_name)
@@ -94,6 +97,7 @@ class LifeSyncSmokeTest:
 
         self.wait.until(EC.url_contains("/dashboard"))
         self.wait_for_testid("dashboard-page")
+        self.capture("03-dashboard-after-register")
 
     def verify_dashboard(self, user: TestUser, expected_weight: str = "74") -> None:
         greeting = self.text_of("dashboard-greeting")
@@ -112,6 +116,7 @@ class LifeSyncSmokeTest:
         self.click_testid("edit-profile-button")
         self.wait.until(EC.url_contains("/profile/edit"))
         self.wait_for_testid("edit-profile-form")
+        self.capture("04-edit-profile")
 
         weight_input = self.wait_for_testid("edit-weight-input")
         weight_input.send_keys(Keys.CONTROL, "a")
@@ -120,8 +125,10 @@ class LifeSyncSmokeTest:
         self.click_testid("save-profile-button")
 
         self.wait_for_testid("edit-profile-success")
+        self.capture("05-profile-update-success")
         self.wait.until(EC.url_contains("/dashboard"))
         self.wait_for_testid("dashboard-page")
+        self.capture("06-dashboard-after-update")
 
     def logout(self) -> None:
         self.click_testid("logout-button")
@@ -134,6 +141,7 @@ class LifeSyncSmokeTest:
         self.click_testid("auth-submit")
         self.wait.until(EC.url_contains("/dashboard"))
         self.wait_for_testid("dashboard-page")
+        self.capture("07-dashboard-after-login")
 
     def wait_for_testid(self, testid: str):
         return self.wait.until(
@@ -162,6 +170,13 @@ class LifeSyncSmokeTest:
 
     def text_of(self, testid: str) -> str:
         return self.wait_for_testid(testid).text.strip()
+
+    def capture(self, name: str) -> None:
+        if not ARTIFACTS_DIR:
+            return
+        os.makedirs(ARTIFACTS_DIR, exist_ok=True)
+        path = os.path.join(ARTIFACTS_DIR, f"{name}.png")
+        self.driver.save_screenshot(path)
 
 
 def main() -> None:

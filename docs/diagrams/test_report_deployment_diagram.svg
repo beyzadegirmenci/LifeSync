@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="304" viewBox="0 0 1180 304">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333333"/>
+    </marker>
+    <style>
+      .box {
+        fill: #f0efff;
+        stroke: #9c87ff;
+        stroke-width: 1.2;
+      }
+      .label {
+        font-family: "Times New Roman", serif;
+        font-size: 17px;
+        fill: #111111;
+      }
+      .arrow {
+        fill: none;
+        stroke: #333333;
+        stroke-width: 1.1;
+        marker-end: url(#arrow);
+      }
+    </style>
+  </defs>
+
+  <rect x="146" y="65" width="154" height="56" class="box"/>
+  <text x="223" y="99" text-anchor="middle" class="label">User / Tester</text>
+
+  <rect x="117" y="171" width="213" height="55" class="box"/>
+  <text x="223.5" y="205" text-anchor="middle" class="label">Selenium automation</text>
+
+  <rect x="379" y="93" width="170" height="106" class="box"/>
+  <text x="464" y="124" text-anchor="middle" class="label">React Frontend</text>
+  <text x="464" y="148" text-anchor="middle" class="label">Vite app</text>
+  <text x="464" y="176" text-anchor="middle" class="label">localhost:5173</text>
+
+  <rect x="599" y="105" width="251" height="82" class="box"/>
+  <text x="724.5" y="138" text-anchor="middle" class="label">Node.js / Express Backend</text>
+  <text x="724.5" y="164" text-anchor="middle" class="label">localhost:5000</text>
+
+  <rect x="916" y="33" width="139" height="82" class="box"/>
+  <text x="985.5" y="66" text-anchor="middle" class="label">PostgreSQL</text>
+  <text x="985.5" y="92" text-anchor="middle" class="label">lifesync</text>
+
+  <rect x="900" y="165" width="172" height="106" class="box"/>
+  <text x="986" y="197" text-anchor="middle" class="label">Ollama API</text>
+  <text x="986" y="223" text-anchor="middle" class="label">localhost:11434</text>
+  <text x="986" y="248" text-anchor="middle" class="label">(optional)</text>
+
+  <path d="M 300 93 C 328 92, 351 95, 379 103" class="arrow"/>
+  <path d="M 330 199 C 349 199, 360 190, 379 190" class="arrow"/>
+  <path d="M 549 146 L 599 146" class="arrow"/>
+  <path d="M 808 105 C 848 86, 873 76, 916 73" class="arrow"/>
+  <path d="M 808 187 C 840 206, 866 217, 900 218" class="arrow"/>
+</svg>
